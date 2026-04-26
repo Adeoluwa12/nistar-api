@@ -1,14 +1,14 @@
 {
   "compilerOptions": {
+    "moduleResolution": "node", 
+    "ignoreDeprecations": "5.0",
     "target": "ES2020",
     "module": "commonjs",
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": false,               // Turn off strict mode temporarily to allow deployment
-    "noImplicitAny": false,        // Don't error on missing 'any' types
-    "skipLibCheck": true,          // Skip type checking of declaration files (.d.ts)
-    "esModuleInterop": true,
-    "moduleResolution": "node"
+    "strict": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]
