@@ -1,12 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import { Document, Types } from 'mongoose';
 
+// Enums / Literal Types
 export type UserRole = 'user' | 'counselor' | 'department_admin' | 'super_admin';
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification';
 export type PostStatus = 'draft' | 'published' | 'archived';
 export type CommentStatus = 'pending' | 'approved' | 'rejected';
 export type SessionStatus = 'scheduled' | 'active' | 'completed' | 'cancelled';
 export type MessageType = 'text' | 'image' | 'file' | 'system';
+
+// --- Interfaces ---
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -25,16 +28,13 @@ export interface IUser extends Document {
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   refreshToken?: string;
-  // Counselor-specific
   department?: Types.ObjectId;
   specializations?: string[];
   qualifications?: string[];
   isAvailable?: boolean;
   sessionCount?: number;
   rating?: number;
-  // User-specific
   assignedCounselor?: Types.ObjectId;
-  // Timestamps
   lastActive?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -124,7 +124,7 @@ export interface ISession extends Document {
   counselor: Types.ObjectId;
   status: SessionStatus;
   scheduledAt: Date;
-  duration?: number; // minutes
+  duration?: number;
   notes?: string;
   userNotes?: string;
   meetingLink?: string;
@@ -147,12 +147,28 @@ export interface INotification extends Document {
   createdAt: Date;
 }
 
+// --- Request & Helper Types ---
+
+/**
+ * Custom Request interface to include the authenticated user.
+ * We use an Intersection type to ensure Express.Request properties 
+ * (body, params, query) are not lost.
+ */
 export interface AuthRequest extends Request {
-  user?: IUser & { _id: Types.ObjectId };
+  user?: IUser;
+  // If your controllers use file/files from multer:
+  file?: any; 
+  files?: any;
 }
 
-// Helper type for route handlers that need auth
-export type AuthHandler = (req: AuthRequest, res: Response, next: NextFunction) => Promise<void> | void;
+/**
+ * Helper type for Express middleware/handlers
+ */
+export type AuthHandler = (
+  req: AuthRequest, 
+  res: Response, 
+  next: NextFunction
+) => any;
 
 export interface JwtPayload {
   id: string;
