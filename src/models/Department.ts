@@ -6,7 +6,7 @@ const DepartmentSchema = new Schema<IDepartment>(
   {
     name: { type: String, required: true, unique: true, trim: true },
     description: { type: String, maxlength: 1000 },
-    slug: { type: String, unique: true },
+    slug: { type: String, unique: true }, // Automatically indexed because of unique: true
     icon: { type: String },
     color: { type: String, default: '#9CAF88' },
     headAdmin: { type: Schema.Types.ObjectId, ref: 'User' },
@@ -15,7 +15,12 @@ const DepartmentSchema = new Schema<IDepartment>(
   },
   {
     timestamps: true,
-    toJSON: { transform(_doc, ret: Record<string, unknown>) { ret.__v = undefined; return ret; } },
+    toJSON: {
+      transform(_doc, ret) {
+        const { __v, ...serialized } = ret;
+        return serialized;
+      }
+    },
   }
 );
 

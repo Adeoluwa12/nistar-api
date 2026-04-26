@@ -3,9 +3,20 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { IUser } from '../types';
 
+const HIDDEN_JSON_FIELDS = new Set([
+  'password',
+  'emailVerificationToken',
+  'emailVerificationExpires',
+  'passwordResetToken',
+  'passwordResetExpires',
+  'refreshToken',
+  '__v',
+]);
+
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
+    // Removed duplicate index requirement here; unique: true handles it automatically
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, minlength: 8, select: false },
     role: {
@@ -42,36 +53,40 @@ const UserSchema = new Schema<IUser>(
   {
     timestamps: true,
     toJSON: {
-      transform(_doc, ret: Record<string, unknown>) {
-        ret.password = undefined;
-        ret.emailVerificationToken = undefined;
-        ret.emailVerificationExpires = undefined;
-        ret.passwordResetToken = undefined;
-        ret.passwordResetExpires = undefined;
-        ret.refreshToken = undefined;
-        ret.__v = undefined;
-        return ret;
+      transform(_doc, ret) {
+        return Object.fromEntries(
+          Object.entries(ret).filter(([key]) => !HIDDEN_JSON_FIELDS.has(key))
+        );
       },
     },
   }
 );
 
-UserSchema.index({ email: 1 });
+// Compound and foreign key indexes (Email is already indexed via unique: true above)
 UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ department: 1 });
 UserSchema.index({ assignedCounselor: 1 });
 
+// Hash password before saving
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
+  
+  try {
+    this.password = await bcrypt.hash(this.password, 12);
+    next();
+  } catch (error: any) {
+    next(error);
+  }
 });
 
+// Compare password helper
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  // Reminder: this.password will be undefined unless you specifically .select('+password') in your query
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
+// Token Generation Helpers
 UserSchema.methods.generateEmailVerificationToken = function (): string {
   const token = crypto.randomBytes(32).toString('hex');
   this.emailVerificationToken = crypto.createHash('sha256').update(token).digest('hex');

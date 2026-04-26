@@ -1,6 +1,11 @@
 import mongoose, { Schema } from 'mongoose';
 import { IComment, IConversation, IMessage, ISession, INotification } from '../types';
 
+const transform = (_doc: any, ret: Record<string, unknown>) => { 
+  delete ret.__v; 
+  return ret; 
+};
+
 // Comment
 const CommentSchema = new Schema<IComment>(
   {
@@ -13,10 +18,7 @@ const CommentSchema = new Schema<IComment>(
     likeCount: { type: Number, default: 0 },
     isAnonymous: { type: Boolean, default: false },
   },
-  {
-    timestamps: true,
-    toJSON: { transform(_doc, ret: Record<string, unknown>) { ret.__v = undefined; return ret; } },
-  }
+  { timestamps: true, toJSON: { transform } }
 );
 CommentSchema.index({ post: 1, status: 1, createdAt: -1 });
 CommentSchema.index({ author: 1 });
@@ -32,10 +34,7 @@ const ConversationSchema = new Schema<IConversation>(
     unreadCountUser: { type: Number, default: 0 },
     unreadCountCounselor: { type: Number, default: 0 },
   },
-  {
-    timestamps: true,
-    toJSON: { transform(_doc, ret: Record<string, unknown>) { ret.__v = undefined; return ret; } },
-  }
+  { timestamps: true, toJSON: { transform } }
 );
 ConversationSchema.index({ user: 1, counselor: 1 }, { unique: true });
 ConversationSchema.index({ counselor: 1, lastMessageAt: -1 });
@@ -51,10 +50,7 @@ const MessageSchema = new Schema<IMessage>(
     isRead: { type: Boolean, default: false },
     readAt: { type: Date },
   },
-  {
-    timestamps: true,
-    toJSON: { transform(_doc, ret: Record<string, unknown>) { ret.__v = undefined; return ret; } },
-  }
+  { timestamps: true, toJSON: { transform } }
 );
 MessageSchema.index({ conversation: 1, createdAt: -1 });
 
@@ -63,11 +59,7 @@ const SessionSchema = new Schema<ISession>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     counselor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    status: {
-      type: String,
-      enum: ['scheduled', 'active', 'completed', 'cancelled'],
-      default: 'scheduled',
-    },
+    status: { type: String, enum: ['scheduled', 'active', 'completed', 'cancelled'], default: 'scheduled' },
     scheduledAt: { type: Date, required: true },
     duration: { type: Number, default: 60 },
     notes: { type: String, maxlength: 2000 },
@@ -78,10 +70,7 @@ const SessionSchema = new Schema<ISession>(
     rating: { type: Number, min: 1, max: 5 },
     feedback: { type: String, maxlength: 1000 },
   },
-  {
-    timestamps: true,
-    toJSON: { transform(_doc, ret: Record<string, unknown>) { ret.__v = undefined; return ret; } },
-  }
+  { timestamps: true, toJSON: { transform } }
 );
 SessionSchema.index({ user: 1, status: 1 });
 SessionSchema.index({ counselor: 1, scheduledAt: 1 });
@@ -96,10 +85,7 @@ const NotificationSchema = new Schema<INotification>(
     data: { type: Schema.Types.Mixed },
     isRead: { type: Boolean, default: false },
   },
-  {
-    timestamps: true,
-    toJSON: { transform(_doc, ret: Record<string, unknown>) { ret.__v = undefined; return ret; } },
-  }
+  { timestamps: true, toJSON: { transform } }
 );
 NotificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
 

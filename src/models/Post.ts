@@ -5,7 +5,7 @@ import { IPost } from '../types';
 const PostSchema = new Schema<IPost>(
   {
     title: { type: String, required: true, trim: true, maxlength: 200 },
-    slug: { type: String, unique: true },
+    slug: { type: String, unique: true }, // Already indexed
     content: { type: String, required: true },
     excerpt: { type: String, maxlength: 500 },
     coverImage: { type: String },
@@ -23,11 +23,16 @@ const PostSchema = new Schema<IPost>(
   },
   {
     timestamps: true,
-    toJSON: { transform(_doc, ret: Record<string, unknown>) { ret.__v = undefined; return ret; } },
+    toJSON: {
+      transform(_doc, ret) {
+        const { __v, ...serialized } = ret;
+        return serialized;
+      }
+    },
   }
 );
 
-PostSchema.index({ slug: 1 });
+// Kept compound and specialized indexes
 PostSchema.index({ author: 1, status: 1 });
 PostSchema.index({ status: 1, createdAt: -1 });
 PostSchema.index({ tags: 1 });
