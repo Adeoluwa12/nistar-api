@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import User from '../models/User';
 import { Notification } from '../models/index';
-import { AuthRequest } from '../types';
+import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
 // PUT /api/users/profile

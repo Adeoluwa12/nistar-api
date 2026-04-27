@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Comment, Notification } from '../models/index';
 import Post from '../models/Post';
-import { AuthRequest } from '../types';
+import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
 // POST /api/comments

@@ -3,7 +3,7 @@ import User from '../models/User';
 import Post from '../models/Post';
 import { Comment, Session, Notification, Conversation } from '../models/index';
 import Department from '../models/Department';
-import { AuthRequest } from '../types';
+import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 import {
   sendVerificationEmail,

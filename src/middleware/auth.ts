@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest, UserRole } from '../types';
+import { AuthRequest, UserRole } from '../types/index';
 import { verifyAccessToken } from '../utils/jwt';
 import { sendError } from '../utils/response';
 import User from '../models/User';

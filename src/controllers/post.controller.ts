@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import Post from '../models/Post';
 import { Comment, Notification } from '../models/index';
-import { AuthRequest } from '../types';
+import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
 // GET /api/posts — public feed

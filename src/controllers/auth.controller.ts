@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
-import { AuthRequest } from '../types';
+import { AuthRequest } from '../types/index';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, cookieOptions } from '../utils/jwt';
 import {
   sendVerificationEmail,

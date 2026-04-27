@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import { Conversation, Session, Notification } from '../models/index';
-import { AuthRequest } from '../types';
+import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 import { sendCounselorAssignmentEmail, sendSessionReminderEmail } from '../utils/email';
 

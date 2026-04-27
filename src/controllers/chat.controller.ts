@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { Conversation, Message, Notification } from '../models/index';
-import { AuthRequest } from '../types';
+import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
 // GET /api/conversations — get my conversations
