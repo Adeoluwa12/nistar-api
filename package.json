@@ -51,6 +51,6 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/uuid": "^9.0.8",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^5.4.5"
   }
 }
