@@ -4,8 +4,7 @@
     "module": "Node16",
     "moduleResolution": "node16",
     "outDir": "./dist",
-    "rootDir": "./src",
-    "types": ["node", "express"],
+    "rootDir": ".",
     "strict": false,
     "skipLibCheck": true,
     "esModuleInterop": true
