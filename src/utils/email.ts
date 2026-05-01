@@ -11,12 +11,15 @@ interface EmailOptions {
 const createTransporter = () =>
   nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || '587', 10),
-    secure: process.env.EMAIL_SECURE === 'true',
+    port: parseInt(process.env.EMAIL_PORT || '465', 10),
+    // This ensures it treats "true" as a boolean
+    secure: process.env.EMAIL_SECURE === 'true' || process.env.EMAIL_PORT === '465',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    // Add a timeout setting to help debug if it still fails
+    connectionTimeout: 10000, 
   });
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {

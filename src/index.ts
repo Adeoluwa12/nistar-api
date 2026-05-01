@@ -7,7 +7,7 @@ import logger from './utils/logger';
 import fs from 'fs';
 import path from 'path';
 
-const PORT = parseInt(process.env.PORT || '5000', 10);
+const PORT = parseInt(process.env.PORT || '5000');
 
 // Ensure upload directory exists
 const uploadPath = path.join(process.cwd(), process.env.UPLOAD_PATH || 'uploads');
@@ -22,7 +22,10 @@ const bootstrap = async () => {
   const server = http.createServer(app);
   initSocket(server);
 
-  server.listen(PORT, () => {
+
+
+
+  server.listen(PORT, "0.0.0.0", () => {
     logger.info(`🌿 Nistar API running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
     logger.info(`📡 WebSocket server ready`);
     logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
