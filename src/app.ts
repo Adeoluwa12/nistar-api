@@ -22,6 +22,7 @@ import { errorHandler, notFound } from './middleware/error';
 import logger from './utils/logger';
 
 const app = express();
+app.set('trust proxy', 1); // Add this line
 
 // ─── SECURITY ─────────────────────────────────────────────────────────────────
 app.use(helmet());
