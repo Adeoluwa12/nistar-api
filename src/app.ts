@@ -22,10 +22,12 @@ import { errorHandler, notFound } from './middleware/error';
 import logger from './utils/logger';
 
 const app = express();
-app.set('trust proxy', 1); // Add this line
+app.set('trust proxy', 1);
 
 // ─── SECURITY ─────────────────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(mongoSanitize());
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
