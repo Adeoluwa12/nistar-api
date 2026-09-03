@@ -34,11 +34,21 @@ app.use(helmet({
 app.use(mongoSanitize());
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:3000',
+  process.env.ADMIN_URL || 'http://localhost:3001',
+].filter(Boolean)
+
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || 'http://localhost:3000',
-    process.env.ADMIN_URL || 'http://localhost:3001',
-  ],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    const originNormalized = origin.replace(/^http:/, 'https:')
+    const isAllowed = allowedOrigins.some(allowed => {
+      const allowedNormalized = allowed.replace(/^http:/, 'https:')
+      return allowedNormalized === originNormalized
+    })
+    callback(null, isAllowed)
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
