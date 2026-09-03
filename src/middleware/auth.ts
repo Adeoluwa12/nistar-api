@@ -36,6 +36,11 @@ export const authenticate = async (
       return;
     }
 
+    if (user.status === 'inactive') {
+      sendError(res, 'Your account is inactive. Please contact support to reactivate it.', 403);
+      return;
+    }
+
     if (!user.isEmailVerified) {
       sendError(res, 'Please verify your email address to continue.', 403);
       return;
@@ -66,7 +71,7 @@ export const optionalAuth = async (
     if (token) {
       const decoded = verifyAccessToken(token);
       const user = await User.findById(decoded.id);
-      if (user && user.status !== 'suspended' && user.isEmailVerified) {
+      if (user && user.status !== 'suspended' && user.status !== 'inactive' && user.isEmailVerified) {
         req.user = user;
       }
     }

@@ -1,8 +1,38 @@
 import { Response } from 'express';
 import User from '../models/User';
+import Post from '../models/Post';
 import { Notification } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
+
+// GET /api/users/me/stats — author/user dashboard aggregate
+export const getMyStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const posts = await Post.find({ author: req.user!._id }).select('status likeCount commentCount viewCount');
+
+    const totals = posts.reduce(
+      (acc, p) => ({
+        views: acc.views + (p.viewCount || 0),
+        likes: acc.likes + (p.likeCount || 0),
+        comments: acc.comments + (p.commentCount || 0),
+      }),
+      { views: 0, likes: 0, comments: 0 }
+    );
+
+    sendSuccess(res, {
+      totalPosts: posts.length,
+      published: posts.filter((p) => p.status === 'published').length,
+      drafts: posts.filter((p) => p.status === 'draft').length,
+      totalViews: totals.views,
+      totalLikes: totals.likes,
+      totalComments: totals.comments,
+      isAuthor: req.user!.isAuthor === true,
+      consecutiveApprovals: req.user!.consecutiveApprovals || 0,
+    });
+  } catch (err) {
+    sendError(res, 'Failed to load stats.', 500);
+  }
+};
 
 // PUT /api/users/profile
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {

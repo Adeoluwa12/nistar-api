@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
-import { Conversation, Session, Notification } from '../models/index';
+import { Conversation, Session, Notification, CounselorApplication } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
+import { encryptField, decryptField } from '../utils/encryption';
 import { sendCounselorAssignmentEmail, sendSessionReminderEmail } from '../utils/email';
 
 // GET /api/counselors — public list
@@ -134,20 +135,71 @@ export const getMyUsers = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// POST /api/sessions — schedule session
+// POST /api/counselors/apply — submit a counselor/associate application
+export const applyCounselor = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const existing = await CounselorApplication.findOne({ user: req.user!._id, status: 'pending' });
+    if (existing) {
+      sendError(res, 'You already have a pending application.', 409);
+      return;
+    }
+
+    if (req.user!.role === 'counselor') {
+      sendError(res, 'You are already a counselor.', 409);
+      return;
+    }
+
+    const files = (req.files as Express.Multer.File[]) || [];
+    const documents = files.map((f) => `/uploads/documents/${f.filename}`);
+
+    const application = await CounselorApplication.create({
+      user: req.user!._id,
+      statement: req.body.statement,
+      documents,
+    });
+
+    sendSuccess(res, application, 'Application submitted', 201);
+  } catch (err) {
+    sendError(res, 'Failed to submit application.', 500);
+  }
+};
+
+// POST /api/sessions — request or schedule a session
 export const scheduleSession = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { counselorId, scheduledAt, duration, notes } = req.body;
+    const {
+      counselorId, requestedDate, scheduledAt, duration, notes, description,
+      emotionalState, preferredSupportType, availability,
+    } = req.body;
+
+    const requested = new Date(requestedDate || scheduledAt);
+    if (requested <= new Date()) {
+      sendError(res, 'Requested date must be in the future.', 400);
+      return;
+    }
+
+    const encryptedEmotionalState = emotionalState ? encryptField(emotionalState) : undefined;
+
+    // Without a counselor this becomes a pending consultation request
+    if (!counselorId) {
+      const session = await Session.create({
+        user: req.user!._id,
+        status: 'pending',
+        requestedDate: requested,
+        description,
+        emotionalState: encryptedEmotionalState,
+        preferredSupportType,
+        availability,
+        duration: duration || 60,
+      });
+      await session.populate('user', 'name avatar');
+      sendSuccess(res, session, 'Appointment request submitted', 201);
+      return;
+    }
 
     const counselor = await User.findOne({ _id: counselorId, role: 'counselor', status: 'active' });
     if (!counselor) {
       sendError(res, 'Counselor not found.', 404);
-      return;
-    }
-
-    const date = new Date(scheduledAt);
-    if (date <= new Date()) {
-      sendError(res, 'Session must be scheduled in the future.', 400);
       return;
     }
 
@@ -156,8 +208,8 @@ export const scheduleSession = async (req: AuthRequest, res: Response): Promise<
       counselor: counselorId,
       status: { $in: ['scheduled', 'active'] },
       scheduledAt: {
-        $gte: new Date(date.getTime() - 60 * 60 * 1000),
-        $lte: new Date(date.getTime() + 60 * 60 * 1000),
+        $gte: new Date(requested.getTime() - 60 * 60 * 1000),
+        $lte: new Date(requested.getTime() + 60 * 60 * 1000),
       },
     });
 
@@ -169,9 +221,14 @@ export const scheduleSession = async (req: AuthRequest, res: Response): Promise<
     const session = await Session.create({
       user: req.user!._id,
       counselor: counselorId,
-      scheduledAt: date,
+      status: 'scheduled',
+      requestedDate: requested,
+      scheduledAt: requested,
       duration: duration || 60,
       notes,
+      emotionalState: encryptedEmotionalState,
+      preferredSupportType,
+      availability,
     });
 
     await session.populate('counselor', 'name avatar');
@@ -182,11 +239,11 @@ export const scheduleSession = async (req: AuthRequest, res: Response): Promise<
       recipient: counselorId,
       type: 'session_scheduled',
       title: 'New session scheduled',
-      message: `${req.user!.name} scheduled a session for ${date.toLocaleDateString()}`,
+      message: `${req.user!.name} scheduled a session for ${requested.toLocaleDateString()}`,
       data: { sessionId: session._id },
     });
 
-    await sendSessionReminderEmail(req.user!.email, req.user!.name, counselor.name, date);
+    await sendSessionReminderEmail(req.user!.email, req.user!.name, counselor.name, requested);
 
     sendSuccess(res, session, 'Session scheduled successfully', 201);
   } catch (err) {
@@ -210,13 +267,19 @@ export const getMySessions = async (req: AuthRequest, res: Response): Promise<vo
       Session.find(filter)
         .populate('user', 'name avatar')
         .populate('counselor', 'name avatar')
-        .sort({ scheduledAt: -1 })
+        .sort({ requestedDate: -1 })
         .skip(skip)
         .limit(limit),
       Session.countDocuments(filter),
     ]);
 
-    sendSuccess(res, sessions, 'Sessions retrieved', 200, paginate(page, limit, total));
+    const decrypted = sessions.map((s) => {
+      const obj = s.toObject();
+      if (obj.emotionalState) obj.emotionalState = decryptField(obj.emotionalState);
+      return obj;
+    });
+
+    sendSuccess(res, decrypted, 'Sessions retrieved', 200, paginate(page, limit, total));
   } catch (err) {
     sendError(res, 'Failed to fetch sessions.', 500);
   }
@@ -231,15 +294,16 @@ export const cancelSession = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const isParticipant = [session.user.toString(), session.counselor.toString()].includes(
-      req.user!._id.toString()
-    );
+    const participants = [session.user.toString()];
+    if (session.counselor) participants.push(session.counselor.toString());
+
+    const isParticipant = participants.includes(req.user!._id.toString());
     if (!isParticipant) {
       sendError(res, 'Unauthorised.', 403);
       return;
     }
 
-    if (!['scheduled', 'active'].includes(session.status)) {
+    if (!['pending', 'approved', 'scheduled', 'active'].includes(session.status)) {
       sendError(res, 'This session cannot be cancelled.', 400);
       return;
     }
@@ -250,15 +314,17 @@ export const cancelSession = async (req: AuthRequest, res: Response): Promise<vo
     await session.save();
 
     // Notify the other party
-    const notifyId =
-      session.user.toString() === req.user!._id.toString() ? session.counselor : session.user;
-    await Notification.create({
-      recipient: notifyId,
-      type: 'session_cancelled',
-      title: 'Session cancelled',
-      message: `${req.user!.name} cancelled the session scheduled for ${session.scheduledAt.toLocaleDateString()}`,
-      data: { sessionId: session._id },
-    });
+    if (session.counselor) {
+      const notifyId =
+        session.user.toString() === req.user!._id.toString() ? session.counselor : session.user;
+      await Notification.create({
+        recipient: notifyId,
+        type: 'session_cancelled',
+        title: 'Session cancelled',
+        message: `${req.user!.name} cancelled the session requested for ${session.requestedDate.toLocaleDateString()}`,
+        data: { sessionId: session._id },
+      });
+    }
 
     sendSuccess(res, session, 'Session cancelled');
   } catch (err) {
@@ -289,5 +355,78 @@ export const rateSession = async (req: AuthRequest, res: Response): Promise<void
     sendSuccess(res, session, 'Session rated successfully');
   } catch (err) {
     sendError(res, 'Failed to rate session.', 500);
+  }
+};
+
+// PUT /api/sessions/:id/meeting — counselor/admin attaches a meeting link (e.g. Google Meet)
+export const setSessionMeeting = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { meetingLink } = req.body;
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      sendError(res, 'Session not found.', 404);
+      return;
+    }
+
+    const isCounselor = !!session.counselor && session.counselor.toString() === req.user!._id.toString();
+    const isAdmin = ['department_admin', 'super_admin'].includes(req.user!.role);
+    if (!isCounselor && !isAdmin) {
+      sendError(res, 'Unauthorised.', 403);
+      return;
+    }
+
+    session.meetingLink = meetingLink;
+    if (session.status === 'approved') session.status = 'scheduled';
+    await session.save();
+
+    await Notification.create({
+      recipient: session.user,
+      type: 'session_scheduled',
+      title: 'Meeting link added',
+      message: 'Your counselor added a meeting link to your upcoming session.',
+      data: { sessionId: session._id },
+    });
+
+    sendSuccess(res, session, 'Meeting link saved');
+  } catch (err) {
+    sendError(res, 'Failed to save meeting link.', 500);
+  }
+};
+
+// PUT /api/sessions/:id/complete — counselor/admin marks a session complete
+export const completeSession = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      sendError(res, 'Session not found.', 404);
+      return;
+    }
+
+    const isCounselor = !!session.counselor && session.counselor.toString() === req.user!._id.toString();
+    const isAdmin = ['department_admin', 'super_admin'].includes(req.user!.role);
+    if (!isCounselor && !isAdmin) {
+      sendError(res, 'Unauthorised.', 403);
+      return;
+    }
+
+    if (!['approved', 'scheduled', 'active'].includes(session.status)) {
+      sendError(res, 'This session cannot be completed.', 400);
+      return;
+    }
+
+    session.status = 'completed';
+    await session.save();
+
+    await Notification.create({
+      recipient: session.user,
+      type: 'session_scheduled',
+      title: 'Session completed',
+      message: 'Your session was marked complete. We\'d love your feedback — please leave a rating.',
+      data: { sessionId: session._id },
+    });
+
+    sendSuccess(res, session, 'Session completed');
+  } catch (err) {
+    sendError(res, 'Failed to complete session.', 500);
   }
 };

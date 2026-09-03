@@ -20,6 +20,8 @@ const PostSchema = new Schema<IPost>(
     viewCount: { type: Number, default: 0 },
     isAnonymous: { type: Boolean, default: false },
     allowComments: { type: Boolean, default: true },
+    autoPublished: { type: Boolean, default: false },
+    visibility: { type: String, enum: ['public', 'private'], default: 'public' },
   },
   {
     timestamps: true,

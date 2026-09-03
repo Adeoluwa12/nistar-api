@@ -49,6 +49,8 @@ const UserSchema = new Schema<IUser>(
     // User fields
     assignedCounselor: { type: Schema.Types.ObjectId, ref: 'User' },
     lastActive: { type: Date },
+    isAuthor: { type: Boolean, default: false },
+    consecutiveApprovals: { type: Number, default: 0 },
   },
   {
     timestamps: true,

@@ -17,6 +17,9 @@ import {
   chatRouter,
   userRouter,
   adminRouter,
+  categoryRouter,
+  libraryRouter,
+  subscribeRouter,
 } from './routes/index';
 import { errorHandler, notFound } from './middleware/error';
 import logger from './utils/logger';
@@ -89,6 +92,9 @@ app.use('/api/sessions', sessionRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/users', userRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/categories', categoryRouter);
+app.use('/api/library', libraryRouter);
+app.use('/api/subscribe', subscribeRouter);
 
 // ─── ERROR HANDLING ───────────────────────────────────────────────────────────
 app.use(notFound);

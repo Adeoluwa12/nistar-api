@@ -78,6 +78,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (user.status === 'inactive') {
+      sendError(res, 'Your account is inactive. Please contact support to reactivate it.', 403);
+      return;
+    }
+
     const { accessToken } = await issueTokens(res, user._id.toString(), user.role);
 
     sendSuccess(res, {

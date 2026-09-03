@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import Post from '../models/Post';
-import { Comment, Session, Notification, Conversation } from '../models/index';
+import { Comment, Session, Notification, Conversation, CounselorApplication, LiteraryWork, Subscriber, AuditLog } from '../models/index';
 import Department from '../models/Department';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
-import {
-  sendVerificationEmail,
-} from '../utils/email';
+import { sendVerificationEmail } from '../utils/email';
+import { logAudit } from '../utils/audit';
+import { AUTHOR_APPROVAL_THRESHOLD } from '../config/constants';
 
 // GET /api/admin/dashboard
 export const getDashboard = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -250,19 +250,65 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
+// POST /api/admin/promote — any admin can promote an existing user to department_admin
+export const promoteToAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const raw = String(req.body.email || req.body.identifier || '').trim();
+    if (!raw) {
+      sendError(res, 'Provide the user\'s email or name.', 400);
+      return;
+    }
+
+    // Look up by email or (case-insensitive) exact name.
+    const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const target = await User.findOne({
+      $or: [
+        { email: raw.toLowerCase() },
+        { name: { $regex: `^${escaped}$`, $options: 'i' } },
+      ],
+    });
+
+    if (!target) {
+      sendError(res, 'User not found.', 404);
+      return;
+    }
+
+    if (['super_admin', 'department_admin'].includes(target.role)) {
+      sendError(res, 'User is already an admin.', 409);
+      return;
+    }
+
+    target.role = 'department_admin';
+    await target.save();
+
+    await Notification.create({
+      recipient: target._id,
+      type: 'role_changed',
+      title: 'You have been promoted',
+      message: 'You are now a department admin.',
+      data: { newRole: 'department_admin', promotedBy: req.user!._id },
+    });
+
+    sendSuccess(res, { _id: target._id, name: target.name, email: target.email, role: target.role }, 'User promoted to department admin.');
+  } catch (err) {
+    sendError(res, 'Failed to promote user.', 500);
+  }
+};
+
 // GET /api/admin/posts
 export const getAllPosts = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const { status, author } = req.query as Record<string, string>;
+    const { status, author, autoPublished } = req.query as Record<string, string>;
 
     const filter: Record<string, unknown> = {};
     if (status) filter.status = status;
     if (author) filter.author = author;
+    if (autoPublished !== undefined) filter.autoPublished = autoPublished === 'true';
 
     const [posts, total] = await Promise.all([
       Post.find(filter)
-        .populate('author', 'name email avatar')
+        .populate('author', 'name email avatar isAuthor')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -276,17 +322,51 @@ export const getAllPosts = async (req: Request, res: Response): Promise<void> =>
 };
 
 // PUT /api/admin/posts/:id/status
-export const updatePostStatus = async (req: Request, res: Response): Promise<void> => {
+export const updatePostStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const post = await Post.findByIdAndUpdate(
-      req.params.id,
-      { status: req.body.status },
-      { new: true }
-    ).populate('author', 'name email');
+    const { status } = req.body;
+    const post = await Post.findById(req.params.id).populate('author', '_id');
 
     if (!post) {
       sendError(res, 'Post not found.', 404);
       return;
+    }
+
+    const previousStatus = post.status;
+
+    post.status = status;
+    await post.save();
+    await post.populate('author', 'name email isAuthor consecutiveApprovals');
+
+    // Author progression: manual admin approvals count toward author status
+    if (status === 'published' && previousStatus !== 'published' && !post.autoPublished) {
+      const author = await User.findById(post.author._id);
+      if (author && !author.isAuthor) {
+        author.consecutiveApprovals = (author.consecutiveApprovals || 0) + 1;
+
+        if (author.consecutiveApprovals >= AUTHOR_APPROVAL_THRESHOLD) {
+          author.isAuthor = true;
+          author.consecutiveApprovals = 0;
+
+          await Notification.create({
+            recipient: author._id,
+            type: 'author_promotion',
+            title: 'You are now a Nistar Author',
+            message: `Congratulations! After ${AUTHOR_APPROVAL_THRESHOLD} approved posts, you can now publish without admin review.`,
+            data: { threshold: AUTHOR_APPROVAL_THRESHOLD },
+          });
+        }
+
+        await author.save();
+      }
+    }
+
+    if (status === 'rejected' && previousStatus !== 'rejected') {
+      const author = await User.findById(post.author._id);
+      if (author && !author.isAuthor) {
+        author.consecutiveApprovals = 0;
+        await author.save();
+      }
     }
 
     sendSuccess(res, post, 'Post status updated');
@@ -366,6 +446,159 @@ export const createDepartment = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// GET /api/admin/sessions/queue
+export const getSessionQueue = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { page, limit, skip } = parsePagination(_req.query);
+
+    const [sessions, total] = await Promise.all([
+      Session.find({ status: 'pending' })
+        .populate('user', 'name avatar email')
+        .select('-emotionalState -availability -preferredSupportType -notes -userNotes')
+        .sort({ requestedDate: -1 })
+        .skip(skip)
+        .limit(limit),
+      Session.countDocuments({ status: 'pending' }),
+    ]);
+
+    sendSuccess(res, sessions, 'Session queue retrieved', 200, paginate(page, limit, total));
+  } catch (err) {
+    sendError(res, 'Failed to fetch session queue.', 500);
+  }
+};
+
+// PUT /api/admin/sessions/:id/assign
+export const assignSession = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { counselorId } = req.body;
+    const session = await Session.findById(req.params.id).populate('user', 'name email');
+
+    if (!session) {
+      sendError(res, 'Session not found.', 404);
+      return;
+    }
+
+    if (session.status !== 'pending') {
+      sendError(res, 'Session has already been processed.', 400);
+      return;
+    }
+
+    const counselor = await User.findOne({ _id: counselorId, role: 'counselor', status: 'active' });
+    if (!counselor) {
+      sendError(res, 'Counselor not found.', 404);
+      return;
+    }
+
+    session.counselor = counselor._id as any;
+    session.status = 'approved';
+    session.scheduledAt = session.requestedDate;
+    await session.save();
+
+    // Ensure conversation thread exists
+    const existingConv = await Conversation.findOne({ user: session.user, counselor: counselor._id });
+    if (!existingConv) {
+      await Conversation.create({ user: session.user, counselor: counselor._id });
+    }
+
+    // Notify user and counselor
+    await Notification.create({
+      recipient: session.user,
+      type: 'session_approved',
+      title: 'Appointment approved',
+      message: `Your appointment on ${session.requestedDate.toLocaleDateString()} was approved. ${counselor.name} will be with you.`,
+      data: { sessionId: session._id, counselorId: counselor._id },
+    });
+
+    await Notification.create({
+      recipient: counselor._id,
+      type: 'session_assigned',
+      title: 'New appointment assigned',
+      message: `A new appointment on ${session.requestedDate.toLocaleDateString()} has been assigned to you.`,
+      data: { sessionId: session._id, userId: session.user },
+    });
+
+    await session.populate('counselor', 'name avatar');
+    await session.populate('user', 'name avatar');
+
+    sendSuccess(res, session, 'Session assigned and approved');
+  } catch (err) {
+    sendError(res, 'Failed to assign session.', 500);
+  }
+};
+
+// GET /api/admin/applications
+export const getApplications = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { page, limit, skip } = parsePagination(_req.query);
+    const { status } = _req.query as Record<string, string>;
+
+    const filter: Record<string, unknown> = {};
+    if (status) filter.status = status;
+
+    const [applications, total] = await Promise.all([
+      CounselorApplication.find(filter)
+        .populate('user', 'name email avatar')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      CounselorApplication.countDocuments(filter),
+    ]);
+
+    sendSuccess(res, applications, 'Applications retrieved', 200, paginate(page, limit, total));
+  } catch (err) {
+    sendError(res, 'Failed to fetch applications.', 500);
+  }
+};
+
+// PUT /api/admin/applications/:id/review
+export const reviewApplication = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { status, note } = req.body;
+    const application = await CounselorApplication.findById(req.params.id).populate('user', '_id name email');
+
+    if (!application) {
+      sendError(res, 'Application not found.', 404);
+      return;
+    }
+
+    if (!['approved', 'rejected'].includes(status)) {
+      sendError(res, 'Invalid review status.', 400);
+      return;
+    }
+
+    application.status = status;
+    application.reviewedBy = req.user!._id;
+    application.reviewNote = note;
+    await application.save();
+
+    if (status === 'approved' && application.user) {
+      await User.findByIdAndUpdate((application.user as any)._id, { role: 'counselor' });
+
+      await Notification.create({
+        recipient: (application.user as any)._id,
+        type: 'application_approved',
+        title: 'Counselor application approved',
+        message: 'Your counselor application has been approved. Welcome to the team.',
+        data: { applicationId: application._id },
+      });
+    }
+
+    if (status === 'rejected' && application.user) {
+      await Notification.create({
+        recipient: (application.user as any)._id,
+        type: 'application_rejected',
+        title: 'Counselor application not approved',
+        message: note ? `Reason: ${note}` : 'Your counselor application was not approved at this time.',
+        data: { applicationId: application._id },
+      });
+    }
+
+    sendSuccess(res, application, `Application ${status}`);
+  } catch (err) {
+    sendError(res, 'Failed to review application.', 500);
+  }
+};
+
 // PUT /api/admin/departments/:id
 export const updateDepartment = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -377,5 +610,80 @@ export const updateDepartment = async (req: Request, res: Response): Promise<voi
     sendSuccess(res, department, 'Department updated');
   } catch (err) {
     sendError(res, 'Failed to update department.', 500);
+  }
+};
+
+// GET /api/admin/analytics — super admin only, platform-wide analytics
+export const getAnalytics = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const [usersByRole, postsByStatus, downloadAgg, subscribers, totalWorks, topPosts] = await Promise.all([
+      User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+      Post.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      LiteraryWork.aggregate([{ $group: { _id: null, total: { $sum: '$downloadCount' } } }]),
+      Subscriber.countDocuments(),
+      LiteraryWork.countDocuments(),
+      Post.find({ status: 'published' })
+        .sort({ viewCount: -1 })
+        .limit(5)
+        .select('title slug viewCount likeCount commentCount'),
+    ]);
+
+    const usersByRoleMap: Record<string, number> = {};
+    usersByRole.forEach((r: { _id: string; count: number }) => { usersByRoleMap[r._id] = r.count; });
+    const postsByStatusMap: Record<string, number> = {};
+    postsByStatus.forEach((r: { _id: string; count: number }) => { postsByStatusMap[r._id] = r.count; });
+
+    sendSuccess(res, {
+      usersByRole: usersByRoleMap,
+      postsByStatus: postsByStatusMap,
+      totalDownloads: downloadAgg[0]?.total || 0,
+      subscribers,
+      totalWorks,
+      topPosts,
+    });
+  } catch (err) {
+    sendError(res, 'Failed to load analytics.', 500);
+  }
+};
+
+// GET /api/admin/conversations — super admin only. Returns metadata ONLY
+// (participants, timestamps, counts) — never message content — and is audited.
+export const getConversationsMeta = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+
+    const [items, total] = await Promise.all([
+      Conversation.find()
+        .populate('user', 'name email')
+        .populate('counselor', 'name email')
+        .select('user counselor type lastMessageAt isActive unreadCountUser unreadCountCounselor createdAt')
+        .sort({ lastMessageAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Conversation.countDocuments(),
+    ]);
+
+    await logAudit(req.user!._id, 'view_conversation_metadata', {
+      targetType: 'Conversation',
+      meta: { page, count: items.length },
+    });
+
+    sendSuccess(res, items, 'Conversation metadata retrieved', 200, paginate(page, limit, total));
+  } catch (err) {
+    sendError(res, 'Failed to fetch conversation metadata.', 500);
+  }
+};
+
+// GET /api/admin/audit-logs — super admin only
+export const getAuditLogs = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const [logs, total] = await Promise.all([
+      AuditLog.find().populate('actor', 'name email role').sort({ createdAt: -1 }).skip(skip).limit(limit),
+      AuditLog.countDocuments(),
+    ]);
+    sendSuccess(res, logs, 'Audit logs retrieved', 200, paginate(page, limit, total));
+  } catch (err) {
+    sendError(res, 'Failed to fetch audit logs.', 500);
   }
 };

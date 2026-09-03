@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import Post from '../models/Post';
+import User from '../models/User';
 import { Comment, Notification } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
@@ -10,7 +11,7 @@ export const getPosts = async (req: Request, res: Response): Promise<void> => {
     const { page, limit, skip } = parsePagination(req.query);
     const { tag, category, search, sort = 'latest' } = req.query as Record<string, string>;
 
-    const filter: Record<string, unknown> = { status: 'published' };
+    const filter: Record<string, unknown> = { status: 'published', visibility: 'public' };
     if (tag) filter.tags = tag.toLowerCase();
     if (category) filter.category = category;
     if (search) filter.$text = { $search: search };
@@ -24,7 +25,7 @@ export const getPosts = async (req: Request, res: Response): Promise<void> => {
 
     const [posts, total] = await Promise.all([
       Post.find(filter)
-        .populate('author', 'name avatar role')
+        .populate('author', 'name avatar role isAuthor')
         .sort(sortQuery)
         .skip(skip)
         .limit(limit)
@@ -39,14 +40,27 @@ export const getPosts = async (req: Request, res: Response): Promise<void> => {
 };
 
 // GET /api/posts/:slug
-export const getPost = async (req: Request, res: Response): Promise<void> => {
+export const getPost = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const post = await Post.findOne({ slug: req.params.slug, status: 'published' })
-      .populate('author', 'name avatar bio role');
+      .populate('author', 'name avatar bio role isAuthor assignedCounselor');
 
     if (!post) {
       sendError(res, 'Post not found.', 404);
       return;
+    }
+
+    // Private posts are only visible to the author, their assigned counselor, and admins
+    if (post.visibility === 'private') {
+      const userId = req.user?._id?.toString();
+      const isAuthor = post.author._id.toString() === userId;
+      const isAssignedCounselor = (post.author as any).assignedCounselor?.toString() === userId;
+      const isAdmin = ['department_admin', 'super_admin'].includes(req.user?.role ?? '');
+
+      if (!isAuthor && !isAssignedCounselor && !isAdmin) {
+        sendError(res, 'Post not found.', 404);
+        return;
+      }
     }
 
     // Increment view count
@@ -66,7 +80,11 @@ export const getPost = async (req: Request, res: Response): Promise<void> => {
 // POST /api/posts
 export const createPost = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { title, content, excerpt, tags, category, status, isAnonymous, allowComments } = req.body;
+    const { title, content, excerpt, tags, category, isAnonymous, allowComments, visibility } = req.body;
+
+    const isAuthor = req.user!.isAuthor === true;
+    const postStatus = isAuthor ? 'published' : 'draft';
+    const autoPublished = isAuthor;
 
     const post = await Post.create({
       title,
@@ -74,14 +92,16 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
       excerpt,
       tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map((t: string) => t.trim())) : [],
       category,
-      status: status || 'draft',
+      status: postStatus,
       isAnonymous: isAnonymous ?? false,
       allowComments: allowComments ?? true,
       author: req.user!._id,
       coverImage: req.file ? `/uploads/${req.file.filename}` : req.body.coverImage,
+      autoPublished,
+      visibility: visibility === 'private' ? 'private' : 'public',
     });
 
-    await post.populate('author', 'name avatar role');
+    await post.populate('author', 'name avatar role isAuthor');
     sendSuccess(res, post, 'Post created successfully', 201);
   } catch (err) {
     sendError(res, 'Failed to create post.', 500);
@@ -105,7 +125,7 @@ export const updatePost = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const allowed = ['title', 'content', 'excerpt', 'tags', 'category', 'status', 'isAnonymous', 'allowComments', 'coverImage'];
+    const allowed = ['title', 'content', 'excerpt', 'tags', 'category', 'status', 'isAnonymous', 'allowComments', 'coverImage', 'visibility'];
     allowed.forEach((key) => {
       if (req.body[key] !== undefined) {
         (post as unknown as Record<string, unknown>)[key] = req.body[key];
@@ -115,7 +135,7 @@ export const updatePost = async (req: AuthRequest, res: Response): Promise<void>
     if (req.file) post.coverImage = `/uploads/${req.file.filename}`;
 
     await post.save();
-    await post.populate('author', 'name avatar role');
+    await post.populate('author', 'name avatar role isAuthor');
     sendSuccess(res, post, 'Post updated successfully');
   } catch (err) {
     sendError(res, 'Failed to update post.', 500);

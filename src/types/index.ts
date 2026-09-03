@@ -4,10 +4,12 @@ import { Document, Types } from 'mongoose';
 // Enums / Literal Types
 export type UserRole = 'user' | 'counselor' | 'department_admin' | 'super_admin';
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification';
-export type PostStatus = 'draft' | 'published' | 'archived';
+export type PostStatus = 'draft' | 'pending' | 'published' | 'rejected' | 'archived';
+export type PostVisibility = 'public' | 'private';
 export type CommentStatus = 'pending' | 'approved' | 'rejected';
-export type SessionStatus = 'scheduled' | 'active' | 'completed' | 'cancelled';
+export type SessionStatus = 'pending' | 'approved' | 'scheduled' | 'active' | 'completed' | 'cancelled';
 export type MessageType = 'text' | 'image' | 'file' | 'system';
+export type ConversationType = 'support' | 'therapy';
 
 // --- Interfaces ---
 
@@ -36,6 +38,8 @@ export interface IUser extends Document {
   rating?: number;
   assignedCounselor?: Types.ObjectId;
   lastActive?: Date;
+  isAuthor?: boolean;
+  consecutiveApprovals?: number;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -75,6 +79,8 @@ export interface IPost extends Document {
   viewCount: number;
   isAnonymous: boolean;
   allowComments: boolean;
+  autoPublished: boolean;
+  visibility: PostVisibility;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -109,6 +115,7 @@ export interface IConversation extends Document {
   _id: Types.ObjectId;
   user: Types.ObjectId;
   counselor: Types.ObjectId;
+  type: ConversationType;
   lastMessage?: Types.ObjectId;
   lastMessageAt?: Date;
   isActive: boolean;
@@ -121,10 +128,15 @@ export interface IConversation extends Document {
 export interface ISession extends Document {
   _id: Types.ObjectId;
   user: Types.ObjectId;
-  counselor: Types.ObjectId;
+  counselor?: Types.ObjectId;
   status: SessionStatus;
-  scheduledAt: Date;
+  requestedDate: Date;
+  scheduledAt?: Date;
   duration?: number;
+  description?: string;
+  emotionalState?: string;
+  preferredSupportType?: 'call' | 'chat' | 'follow-up';
+  availability?: string;
   notes?: string;
   userNotes?: string;
   meetingLink?: string;
@@ -144,6 +156,63 @@ export interface INotification extends Document {
   message: string;
   data?: Record<string, unknown>;
   isRead: boolean;
+  createdAt: Date;
+}
+
+export interface ICounselorApplication extends Document {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  statement?: string;
+  documents?: string[];
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedBy?: Types.ObjectId;
+  reviewNote?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ICategory extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ISubscriber extends Document {
+  _id: Types.ObjectId;
+  email: string;
+  source?: string;
+  createdAt: Date;
+}
+
+export interface ILiteraryWork extends Document {
+  _id: Types.ObjectId;
+  title: string;
+  slug: string;
+  description?: string;
+  author?: Types.ObjectId;
+  authorName?: string;
+  category?: string;
+  coverImage?: string;
+  epubFile: string;
+  downloadCount: number;
+  isPublished: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IAuditLog extends Document {
+  _id: Types.ObjectId;
+  actor: Types.ObjectId;
+  action: string;
+  targetType?: string;
+  targetId?: Types.ObjectId;
+  meta?: Record<string, unknown>;
   createdAt: Date;
 }
 
