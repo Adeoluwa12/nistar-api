@@ -34,20 +34,23 @@ app.use(helmet({
 app.use(mongoSanitize());
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:3000',
-  process.env.ADMIN_URL || 'http://localhost:3001',
-].filter(Boolean)
+const configuredOrigins = [
+  process.env.CLIENT_URL,
+  process.env.ADMIN_URL,
+  process.env.CORS_ORIGINS,
+]
+  .filter(Boolean) as string[]
+
+const allowedOrigins = configuredOrigins
+  .flatMap(s => s.split(',').map(o => o.trim()).filter(Boolean))
+  .map(o => o.replace(/^http:/, 'https:'))
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true)
     const originNormalized = origin.replace(/^http:/, 'https:')
-    const isAllowed = allowedOrigins.some(allowed => {
-      const allowedNormalized = allowed.replace(/^http:/, 'https:')
-      return allowedNormalized === originNormalized
-    })
-    callback(null, isAllowed)
+    if (originNormalized.endsWith('.vercel.app')) return callback(null, true)
+    callback(null, allowedOrigins.includes(originNormalized))
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
