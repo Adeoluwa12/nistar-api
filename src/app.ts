@@ -56,6 +56,22 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// ─── PREFLIGHT ────────────────────────────────────────────────────────────────
+// Explicitly handle OPTIONS preflight before rate limiting kicks in.
+// On Vercel serverless, a 500 from any subsequent middleware suppresses CORS
+// headers entirely, causing "CORS header missing" in the browser.
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    const originNormalized = origin.replace(/^http:/, 'https:')
+    if (originNormalized.endsWith('.vercel.app')) return callback(null, true)
+    callback(null, allowedOrigins.includes(originNormalized))
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 // ─── RATE LIMITING ────────────────────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
