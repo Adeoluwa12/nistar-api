@@ -43,7 +43,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     });
 
-    if (req.file) updates.avatar = `/uploads/${req.file.filename}`;
+    if (req.file) updates.avatar = (req.file as any).path;
 
     const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true, runValidators: true });
     sendSuccess(res, user, 'Profile updated');
@@ -66,7 +66,7 @@ export const updateCounselorProfile = async (req: AuthRequest, res: Response): P
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     });
 
-    if (req.file) updates.avatar = `/uploads/${req.file.filename}`;
+    if (req.file) updates.avatar = (req.file as any).path;
 
     const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true });
     sendSuccess(res, user, 'Counselor profile updated');

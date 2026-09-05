@@ -4,17 +4,8 @@ import app from './app';
 import connectDB from './config/database';
 import { initSocket } from './services/socket.service';
 import logger from './utils/logger';
-import fs from 'fs';
-import path from 'path';
 
 const PORT = parseInt(process.env.PORT || '5000');
-
-// Ensure upload directory exists
-const uploadPath = path.join(process.cwd(), process.env.UPLOAD_PATH || 'uploads');
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-  logger.info(`Created upload directory: ${uploadPath}`);
-}
 
 const bootstrap = async () => {
   await connectDB();

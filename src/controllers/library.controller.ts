@@ -1,15 +1,19 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
+import axios from 'axios';
+import { v2 as cloudinary } from 'cloudinary';
 import { LiteraryWork } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 import { watermarkEpub } from '../utils/epub';
 
-const UPLOAD_BASE = process.env.UPLOAD_PATH || './uploads';
+function getPublicIdFromUrl(url: string): string {
+  const match = url.match(/\/upload\/v\d+\/(.+)$/);
+  return match ? match[1] : url;
+}
 
-function epubDiskPath(epubFile: string): string {
-  return path.join(process.cwd(), UPLOAD_BASE, 'epubs', path.basename(epubFile));
+async function downloadBuffer(url: string): Promise<Buffer> {
+  const response = await axios.get(url, { responseType: 'arraybuffer' });
+  return Buffer.from(response.data);
 }
 
 type MulterFiles = { [field: string]: Express.Multer.File[] };
@@ -75,8 +79,8 @@ export const createWork = async (req: AuthRequest, res: Response): Promise<void>
       category,
       authorName,
       author: req.user!._id,
-      epubFile: `/uploads/epubs/${epub.filename}`,
-      coverImage: cover ? `/uploads/${cover.filename}` : undefined,
+      epubFile: (epub as any).path,
+      coverImage: cover ? (cover as any).path : undefined,
     });
 
     sendSuccess(res, work, 'Literary work published', 201);
@@ -93,8 +97,16 @@ export const deleteWork = async (req: AuthRequest, res: Response): Promise<void>
       sendError(res, 'Work not found.', 404);
       return;
     }
-    // Best-effort file cleanup
-    try { fs.unlinkSync(epubDiskPath(work.epubFile)); } catch { /* ignore */ }
+    try {
+      if (work.epubFile) {
+        const epubPublicId = getPublicIdFromUrl(work.epubFile);
+        await cloudinary.uploader.destroy(epubPublicId, { resource_type: 'raw', invalidate: true });
+      }
+      if (work.coverImage) {
+        const coverPublicId = getPublicIdFromUrl(work.coverImage);
+        await cloudinary.uploader.destroy(coverPublicId, { invalidate: true });
+      }
+    } catch { /* ignore cleanup errors */ }
     sendSuccess(res, null, 'Work deleted');
   } catch {
     sendError(res, 'Failed to delete work.', 500);
@@ -107,17 +119,11 @@ export const downloadWork = async (req: AuthRequest, res: Response): Promise<voi
   try {
     const work = await LiteraryWork.findOne({ slug: req.params.slug, isPublished: true });
     if (!work) {
-      sendError(res, 'Work not found.', 404);
-      return;
-    }
-
-    const diskPath = epubDiskPath(work.epubFile);
-    if (!fs.existsSync(diskPath)) {
       sendError(res, 'Book file is unavailable.', 404);
       return;
     }
 
-    const original = fs.readFileSync(diskPath);
+    const original = await downloadBuffer(work.epubFile);
     const watermarked = watermarkEpub(original, {
       readerName: req.user?.name || 'Anonymous Reader',
       email: req.user?.email,

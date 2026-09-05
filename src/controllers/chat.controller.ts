@@ -92,7 +92,7 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
       sender: req.user!._id,
       content,
       type,
-      fileUrl: req.file ? `/uploads/${req.file.filename}` : undefined,
+      fileUrl: req.file ? (req.file as any).path : undefined,
     });
 
     await message.populate('sender', 'name avatar role');

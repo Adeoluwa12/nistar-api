@@ -96,7 +96,7 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
       isAnonymous: isAnonymous ?? false,
       allowComments: allowComments ?? true,
       author: req.user!._id,
-      coverImage: req.file ? `/uploads/${req.file.filename}` : req.body.coverImage,
+      coverImage: req.file ? (req.file as any).path : req.body.coverImage,
       autoPublished,
       visibility: visibility === 'private' ? 'private' : 'public',
     });
@@ -132,7 +132,7 @@ export const updatePost = async (req: AuthRequest, res: Response): Promise<void>
       }
     });
 
-    if (req.file) post.coverImage = `/uploads/${req.file.filename}`;
+    if (req.file) post.coverImage = (req.file as any).path;
 
     await post.save();
     await post.populate('author', 'name avatar role isAuthor');

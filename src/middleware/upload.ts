@@ -1,46 +1,48 @@
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import { Request } from 'express';
 
-const UPLOAD_BASE = process.env.UPLOAD_PATH || './uploads';
-
-// Ensure upload directories exist so diskStorage never fails on a fresh clone.
-for (const dir of [UPLOAD_BASE, path.join(UPLOAD_BASE, 'documents'), path.join(UPLOAD_BASE, 'epubs')]) {
-  try { fs.mkdirSync(dir, { recursive: true }); } catch { /* ignore */ }
-}
-
-const imageStorage = multer.diskStorage({
-  destination(_req, _file, cb) {
-    cb(null, UPLOAD_BASE);
-  },
-  filename(_req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  },
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const documentStorage = multer.diskStorage({
-  destination(_req, _file, cb) {
-    cb(null, path.join(UPLOAD_BASE, 'documents'));
-  },
-  filename(_req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  },
+const imageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'nistar',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    transformation: [{ width: 1200, quality: 'auto' }],
+  } as Record<string, unknown>,
 });
 
-// Storage for the EPUB library: routes the master EPUB to /epubs and the
-// optional cover image to the base uploads directory, keyed on field name.
-const libraryStorage = multer.diskStorage({
-  destination(_req, file, cb) {
-    cb(null, file.fieldname === 'epub' ? path.join(UPLOAD_BASE, 'epubs') : UPLOAD_BASE);
-  },
-  filename(_req, file, cb) {
-    const ext = path.extname(file.originalname) || (file.fieldname === 'epub' ? '.epub' : '');
-    cb(null, `${uuidv4()}${ext}`);
-  },
+const documentStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'nistar/documents',
+    resource_type: 'raw',
+    allowed_formats: ['pdf'],
+  } as Record<string, unknown>,
+});
+
+const libraryEpubStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'nistar/epubs',
+    resource_type: 'raw',
+    allowed_formats: ['epub', 'zip'],
+  } as Record<string, unknown>,
+});
+
+const libraryCoverStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'nistar/covers',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    transformation: [{ width: 1200, quality: 'auto' }],
+  } as Record<string, unknown>,
 });
 
 const imageFileFilter = (
@@ -69,6 +71,23 @@ const documentFileFilter = (
   }
 };
 
+const libraryFileFilter = (
+  _req: Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+  if (file.fieldname === 'epub') {
+    const okMime = ['application/epub+zip', 'application/zip', 'application/octet-stream'].includes(file.mimetype);
+    const okExt = file.originalname.toLowerCase().endsWith('.epub');
+    return okMime || okExt ? cb(null, true) : cb(new Error('The book file must be an EPUB.'));
+  }
+  if (file.fieldname === 'cover') {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    return allowed.includes(file.mimetype) ? cb(null, true) : cb(new Error('Cover must be an image.'));
+  }
+  return cb(new Error('Unexpected upload field.'));
+};
+
 export const uploadImage = multer({
   storage: imageStorage,
   fileFilter: imageFileFilter,
@@ -87,26 +106,27 @@ export const uploadDocuments = multer({
   limits: { fileSize: parseInt(process.env.MAX_DOC_SIZE || '10485760', 10) },
 }).array('documents', 5);
 
-const libraryFileFilter = (
-  _req: Request,
-  file: Express.Multer.File,
-  cb: multer.FileFilterCallback
-) => {
-  if (file.fieldname === 'epub') {
-    const okMime = ['application/epub+zip', 'application/zip', 'application/octet-stream'].includes(file.mimetype);
-    const okExt = file.originalname.toLowerCase().endsWith('.epub');
-    return okMime || okExt ? cb(null, true) : cb(new Error('The book file must be an EPUB.'));
-  }
-  if (file.fieldname === 'cover') {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    return allowed.includes(file.mimetype) ? cb(null, true) : cb(new Error('Cover must be an image.'));
-  }
-  return cb(new Error('Unexpected upload field.'));
-};
-
-// EPUB (required) + optional cover image, for creating a literary work.
 export const uploadLiteraryWork = multer({
-  storage: libraryStorage,
+  storage: {
+    _handleFile(req, file, callback) {
+      if (file.fieldname === 'epub') {
+        libraryEpubStorage._handleFile(req, file, callback);
+      } else if (file.fieldname === 'cover') {
+        libraryCoverStorage._handleFile(req, file, callback);
+      } else {
+        callback(new Error('Unexpected field name.'));
+      }
+    },
+    _removeFile(req, file, callback) {
+      if (file.fieldname === 'epub') {
+        libraryEpubStorage._removeFile(req, file, callback);
+      } else if (file.fieldname === 'cover') {
+        libraryCoverStorage._removeFile(req, file, callback);
+      } else {
+        callback(null);
+      }
+    },
+  },
   fileFilter: libraryFileFilter,
   limits: { fileSize: parseInt(process.env.MAX_EPUB_SIZE || '31457280', 10) },
 }).fields([{ name: 'epub', maxCount: 1 }, { name: 'cover', maxCount: 1 }]);

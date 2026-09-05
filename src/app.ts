@@ -6,7 +6,6 @@ import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
-import path from 'path';
 
 import authRoutes from './routes/auth.routes';
 import {
@@ -88,8 +87,6 @@ if (process.env.NODE_ENV !== 'test') {
   }));
 }
 
-// ─── STATIC FILES ─────────────────────────────────────────────────────────────
-app.use('/uploads', express.static(path.join(process.cwd(), process.env.UPLOAD_PATH || 'uploads')));
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

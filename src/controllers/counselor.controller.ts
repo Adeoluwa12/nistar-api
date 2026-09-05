@@ -150,7 +150,7 @@ export const applyCounselor = async (req: AuthRequest, res: Response): Promise<v
     }
 
     const files = (req.files as Express.Multer.File[]) || [];
-    const documents = files.map((f) => `/uploads/documents/${f.filename}`);
+    const documents = files.map((f) => (f as any).path);
 
     const application = await CounselorApplication.create({
       user: req.user!._id,
