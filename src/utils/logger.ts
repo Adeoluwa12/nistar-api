@@ -22,9 +22,4 @@ const logger = winston.createLogger({
   ],
 });
 
-// NOTE: File transports are intentionally omitted.
-// Vercel's filesystem is read-only — writing to logs/ causes
-// FUNCTION_INVOCATION_FAILED on every cold start.
-// Vercel captures all console/stdout output in its dashboard.
-
 export default logger;

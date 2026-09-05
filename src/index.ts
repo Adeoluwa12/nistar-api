@@ -13,9 +13,6 @@ const bootstrap = async () => {
   const server = http.createServer(app);
   initSocket(server);
 
-
-
-
   server.listen(PORT, "0.0.0.0", () => {
     logger.info(`🌿 Nistar API running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
     logger.info(`📡 WebSocket server ready`);
