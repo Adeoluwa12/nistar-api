@@ -20,8 +20,6 @@ const connectDB = async (): Promise<void> => {
     });
   } catch (err) {
     logger.error('MongoDB connection failed:', err);
-    // Don't call process.exit() — on Vercel serverless it kills the function
-    // handler before any HTTP response (including CORS headers) can be sent.
     throw err;
   }
 };

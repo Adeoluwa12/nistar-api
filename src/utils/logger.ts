@@ -1,7 +1,4 @@
 import winston from 'winston';
-import path from 'path';
-
-const logDir = 'logs';
 
 const logger = winston.createLogger({
   level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
@@ -25,18 +22,9 @@ const logger = winston.createLogger({
   ],
 });
 
-if (process.env.NODE_ENV === 'production') {
-  logger.add(
-    new winston.transports.File({
-      filename: path.join(logDir, 'error.log'),
-      level: 'error',
-    })
-  );
-  logger.add(
-    new winston.transports.File({
-      filename: path.join(logDir, 'combined.log'),
-    })
-  );
-}
+// NOTE: File transports are intentionally omitted.
+// Vercel's filesystem is read-only — writing to logs/ causes
+// FUNCTION_INVOCATION_FAILED on every cold start.
+// Vercel captures all console/stdout output in its dashboard.
 
 export default logger;
