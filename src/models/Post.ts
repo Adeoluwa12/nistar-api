@@ -10,7 +10,7 @@ const PostSchema = new Schema<IPost>(
     excerpt: { type: String, maxlength: 500 },
     coverImage: { type: String },
     author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    status: { type: String, enum: ['draft', 'published', 'archived'], default: 'draft' },
+    status: { type: String, enum: ['draft', 'pending', 'published', 'rejected', 'archived'], default: 'draft' },
     tags: [{ type: String, lowercase: true, trim: true }],
     category: { type: String, trim: true },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
