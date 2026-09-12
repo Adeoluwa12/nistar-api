@@ -2,7 +2,7 @@ import { Router, RequestHandler } from 'express';
 import { body } from 'express-validator';
 import { authenticate, optionalAuth, requireCounselor, requireAdmin, requireSuperAdmin } from '../middleware/auth';
 
-import { uploadImage, uploadDocuments, uploadLiteraryWork } from '../middleware/upload';
+import { uploadImage, uploadImageSafe, uploadDocuments, uploadLiteraryWork } from '../middleware/upload';
 import { validate } from '../middleware/error';
 
 import * as post from '../controllers/post.controller';
@@ -23,7 +23,7 @@ export const postRouter = Router();
 postRouter.get('/', rh(optionalAuth), rh(post.getPosts));
 postRouter.get('/my-posts', rh(authenticate), rh(post.getMyPosts));
 postRouter.get('/:slug', rh(optionalAuth), rh(post.getPost));
-postRouter.post('/', rh(authenticate), uploadImage,
+postRouter.post('/', rh(authenticate), uploadImageSafe,
   [body('title').trim().notEmpty().withMessage('Title is required'),
    body('content').trim().notEmpty().withMessage('Content is required')],
   validate, rh(post.createPost));

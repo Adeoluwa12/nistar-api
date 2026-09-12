@@ -82,9 +82,8 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
   try {
     const { title, content, excerpt, tags, category, isAnonymous, allowComments, visibility } = req.body;
 
-    const isAuthor = req.user!.isAuthor === true;
-    const postStatus = isAuthor ? 'published' : 'draft';
-    const autoPublished = isAuthor;
+    const postStatus = 'published';
+    const autoPublished = true;
 
     const post = await Post.create({
       title,
@@ -102,7 +101,10 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
     });
 
     await post.populate('author', 'name avatar role isAuthor');
-    sendSuccess(res, post, 'Post created successfully', 201);
+    const message = (req as any).imageUploadFailed
+      ? 'Post created successfully — image upload failed, please try uploading again later.'
+      : 'Post created successfully';
+    sendSuccess(res, post, message, 201);
   } catch (err) {
     sendError(res, 'Failed to create post.', 500);
   }

@@ -21,6 +21,19 @@ export const errorHandler = (
 ): void => {
   logger.error(`${err.message}`, { stack: err.stack, url: req.url, method: req.method });
 
+  // Multer errors (file upload failures) — surface the real error, not generic 500
+  if (err.name === 'MulterError' || (err as any).code?.startsWith('LIMIT_')) {
+    const multerMsg = (err as any).message || 'File upload failed.';
+    sendError(res, `Upload: ${multerMsg}`, 400);
+    return;
+  }
+  if ((err as any).code === 'ENTITY_TOO_LARGE') {
+    sendError(res, 'Upload: File exceeds maximum allowed size.', 400);
+    return;
+  }
+
+  // Cloudinary / storage errors — provide actionable message
+
   // Mongoose duplicate key
   if (err.code === 11000) {
     sendError(res, 'A record with this information already exists.', 409);

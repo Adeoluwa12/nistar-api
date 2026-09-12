@@ -1,7 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -93,6 +94,19 @@ export const uploadImage = multer({
   fileFilter: imageFileFilter,
   limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10) },
 }).single('image');
+
+export const uploadImageSafe = (req: Request, res: Response, next: NextFunction): void => {
+  uploadImage(req, res, (err?: unknown) => {
+    if (err) {
+      logger.warn('Image upload failed, proceeding without image:', (err as Error).message);
+      (req as any).file = undefined;
+      (req as any).imageUploadFailed = true;
+      next();
+    } else {
+      next();
+    }
+  });
+};
 
 export const uploadMultiple = multer({
   storage: imageStorage,
