@@ -24,7 +24,7 @@ export const authenticate = async (
     }
 
     const decoded = verifyAccessToken(token);
-    const user = await User.findById(decoded.id).select('+password');
+    const user = await User.findById(decoded.id);
 
     if (!user) {
       sendError(res, 'User no longer exists.', 401);

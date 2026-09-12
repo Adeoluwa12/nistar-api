@@ -2,7 +2,7 @@ import { Router, RequestHandler } from 'express';
 import { body } from 'express-validator';
 import { authenticate, optionalAuth, requireCounselor, requireAdmin, requireSuperAdmin } from '../middleware/auth';
 
-import { uploadImage, uploadImageSafe, uploadDocuments, uploadLiteraryWork } from '../middleware/upload';
+import { uploadImageSafe, uploadDocuments, uploadLiteraryWork } from '../middleware/upload';
 import { validate } from '../middleware/error';
 
 import * as post from '../controllers/post.controller';
@@ -27,7 +27,7 @@ postRouter.post('/', rh(authenticate), uploadImageSafe,
   [body('title').trim().notEmpty().withMessage('Title is required'),
    body('content').trim().notEmpty().withMessage('Content is required')],
   validate, rh(post.createPost));
-postRouter.put('/:id', rh(authenticate), uploadImage, rh(post.updatePost));
+postRouter.put('/:id', rh(authenticate), uploadImageSafe, rh(post.updatePost));
 postRouter.delete('/:id', rh(authenticate), rh(post.deletePost));
 postRouter.post('/:id/like', rh(authenticate), rh(post.toggleLike));
 postRouter.post('/:id/share', rh(optionalAuth), rh(post.sharePost));
@@ -77,15 +77,15 @@ sessionRouter.put('/:id/complete', rh(authenticate), rh(requireCounselor), rh(co
 export const chatRouter = Router();
 chatRouter.get('/conversations', rh(authenticate), rh(chat.getConversations));
 chatRouter.get('/conversations/:id/messages', rh(authenticate), rh(chat.getMessages));
-chatRouter.post('/conversations/:id/messages', rh(authenticate), uploadImage,
+chatRouter.post('/conversations/:id/messages', rh(authenticate), uploadImageSafe,
   [body('content').trim().notEmpty().withMessage('Message cannot be empty')],
   validate, rh(chat.sendMessage));
 
 // ─── USER ROUTES ───────────────────────────────────────────────────────────────
 export const userRouter = Router();
 userRouter.get('/me/stats', rh(authenticate), rh(user.getMyStats));
-userRouter.put('/profile', rh(authenticate), uploadImage, rh(user.updateProfile));
-userRouter.put('/counselor-profile', rh(authenticate), rh(requireCounselor), uploadImage, rh(user.updateCounselorProfile));
+userRouter.put('/profile', rh(authenticate), uploadImageSafe, rh(user.updateProfile));
+userRouter.put('/counselor-profile', rh(authenticate), rh(requireCounselor), uploadImageSafe, rh(user.updateCounselorProfile));
 userRouter.get('/notifications', rh(authenticate), rh(user.getNotifications));
 userRouter.put('/notifications/read-all', rh(authenticate), rh(user.markAllNotificationsRead));
 userRouter.put('/notifications/:id/read', rh(authenticate), rh(user.markNotificationRead));
