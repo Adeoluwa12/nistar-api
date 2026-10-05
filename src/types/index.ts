@@ -10,6 +10,8 @@ export type CommentStatus = 'pending' | 'approved' | 'rejected';
 export type SessionStatus = 'pending' | 'approved' | 'scheduled' | 'active' | 'completed' | 'cancelled';
 export type MessageType = 'text' | 'image' | 'file' | 'system';
 export type ConversationType = 'support' | 'therapy';
+export type ComplaintStatus = 'open' | 'in_progress' | 'resolved';
+export type ComplaintCategory = 'session' | 'counselor' | 'content' | 'technical' | 'other';
 
 // --- Interfaces ---
 
@@ -214,6 +216,21 @@ export interface IAuditLog extends Document {
   targetId?: Types.ObjectId;
   meta?: Record<string, unknown>;
   createdAt: Date;
+}
+
+export interface IComplaint extends Document {
+  _id: Types.ObjectId;
+  user?: Types.ObjectId;
+  name?: string;
+  email?: string;
+  category: ComplaintCategory;
+  subject: string;
+  message: string;
+  status: ComplaintStatus;
+  resolvedBy?: Types.ObjectId;
+  resolutionNote?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // --- Request & Helper Types ---

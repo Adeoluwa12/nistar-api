@@ -2,7 +2,7 @@ import mongoose, { Schema } from 'mongoose';
 import slugify from 'slugify';
 import {
   IComment, IConversation, IMessage, ISession, INotification, ICounselorApplication,
-  ICategory, ISubscriber, ILiteraryWork, IAuditLog,
+  ICategory, ISubscriber, ILiteraryWork, IAuditLog, IComplaint,
 } from '../types';
 
 const transform = (_doc: any, ret: Record<string, unknown>) => { 
@@ -181,6 +181,24 @@ const AuditLogSchema = new Schema<IAuditLog>(
 AuditLogSchema.index({ actor: 1, createdAt: -1 });
 AuditLogSchema.index({ targetType: 1, targetId: 1 });
 
+// Complaint / support ticket
+const ComplaintSchema = new Schema<IComplaint>(
+  {
+    user: { type: Schema.Types.ObjectId, ref: 'User' },
+    name: { type: String, trim: true, maxlength: 120 },
+    email: { type: String, lowercase: true, trim: true },
+    category: { type: String, enum: ['session', 'counselor', 'content', 'technical', 'other'], default: 'other' },
+    subject: { type: String, required: true, trim: true, maxlength: 200 },
+    message: { type: String, required: true, maxlength: 5000 },
+    status: { type: String, enum: ['open', 'in_progress', 'resolved'], default: 'open' },
+    resolvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    resolutionNote: { type: String, maxlength: 2000 },
+  },
+  { timestamps: true, toJSON: { transform } }
+);
+ComplaintSchema.index({ status: 1, createdAt: -1 });
+ComplaintSchema.index({ user: 1, createdAt: -1 });
+
 export const Comment = mongoose.model<IComment>('Comment', CommentSchema);
 export const Conversation = mongoose.model<IConversation>('Conversation', ConversationSchema);
 export const Message = mongoose.model<IMessage>('Message', MessageSchema);
@@ -191,3 +209,4 @@ export const Category = mongoose.model<ICategory>('Category', CategorySchema);
 export const Subscriber = mongoose.model<ISubscriber>('Subscriber', SubscriberSchema);
 export const LiteraryWork = mongoose.model<ILiteraryWork>('LiteraryWork', LiteraryWorkSchema);
 export const AuditLog = mongoose.model<IAuditLog>('AuditLog', AuditLogSchema);
+export const Complaint = mongoose.model<IComplaint>('Complaint', ComplaintSchema);

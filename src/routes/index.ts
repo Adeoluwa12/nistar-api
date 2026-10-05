@@ -14,6 +14,7 @@ import * as admin from '../controllers/admin.controller';
 import * as category from '../controllers/category.controller';
 import * as subscriber from '../controllers/subscriber.controller';
 import * as library from '../controllers/library.controller';
+import * as complaint from '../controllers/complaint.controller';
 
 // Cast to handle AuthRequest vs Request typing
 const rh = (fn: unknown): RequestHandler => fn as RequestHandler;
@@ -22,10 +23,11 @@ const rh = (fn: unknown): RequestHandler => fn as RequestHandler;
 export const postRouter = Router();
 postRouter.get('/', rh(optionalAuth), rh(post.getPosts));
 postRouter.get('/my-posts', rh(authenticate), rh(post.getMyPosts));
+postRouter.get('/tags', rh(post.getTags));
 postRouter.get('/:slug', rh(optionalAuth), rh(post.getPost));
 postRouter.post('/', rh(authenticate), uploadImageSafe,
   [body('title').trim().notEmpty().withMessage('Title is required'),
-   body('content').trim().notEmpty().withMessage('Content is required')],
+   body('content').if(body('status').not().equals('draft')).trim().notEmpty().withMessage('Content is required')],
   validate, rh(post.createPost));
 postRouter.put('/:id', rh(authenticate), uploadImageSafe, rh(post.updatePost));
 postRouter.delete('/:id', rh(authenticate), rh(post.deletePost));
@@ -65,6 +67,7 @@ sessionRouter.post('/', rh(authenticate),
    body('duration').optional().isInt({ min: 15, max: 180 })],
   validate, rh(counselor.scheduleSession));
 sessionRouter.put('/:id/cancel', rh(authenticate), rh(counselor.cancelSession));
+sessionRouter.put('/:id/accept', rh(authenticate), rh(requireCounselor), rh(counselor.acceptSession));
 sessionRouter.put('/:id/rate', rh(authenticate),
   [body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5')],
   validate, rh(counselor.rateSession));
@@ -80,6 +83,17 @@ chatRouter.get('/conversations/:id/messages', rh(authenticate), rh(chat.getMessa
 chatRouter.post('/conversations/:id/messages', rh(authenticate), uploadImageSafe,
   [body('content').trim().notEmpty().withMessage('Message cannot be empty')],
   validate, rh(chat.sendMessage));
+
+// ─── COMPLAINT ROUTES ──────────────────────────────────────────────────────────
+export const complaintRouter = Router();
+complaintRouter.post('/', rh(optionalAuth),
+  [body('subject').trim().notEmpty().withMessage('Subject is required').isLength({ max: 200 }),
+   body('message').trim().notEmpty().withMessage('Please describe your complaint').isLength({ max: 5000 }),
+   body('category').optional().isIn(['session', 'counselor', 'content', 'technical', 'other']),
+   body('email').optional().isEmail().normalizeEmail(),
+   body('name').optional().trim().isLength({ max: 120 })],
+  validate, rh(complaint.submitComplaint));
+complaintRouter.get('/my', rh(authenticate), rh(complaint.getMyComplaints));
 
 // ─── USER ROUTES ───────────────────────────────────────────────────────────────
 export const userRouter = Router();
@@ -156,6 +170,13 @@ adminRouter.delete('/library/:id', rh(authenticate), rh(requireAdmin), rh(librar
 
 // Mailing-list subscribers (admins)
 adminRouter.get('/subscribers', rh(authenticate), rh(requireAdmin), rh(subscriber.listSubscribers));
+
+// Complaints (admins)
+adminRouter.get('/complaints', rh(authenticate), rh(requireAdmin), rh(complaint.getComplaints));
+adminRouter.put('/complaints/:id', rh(authenticate), rh(requireAdmin),
+  [body('status').optional().isIn(['open', 'in_progress', 'resolved']).withMessage('Invalid status'),
+   body('resolutionNote').optional().trim().isLength({ max: 2000 })],
+  validate, rh(complaint.updateComplaint));
 
 // Platform analytics + compliance (super admin only)
 adminRouter.get('/analytics', rh(authenticate), rh(requireSuperAdmin), rh(admin.getAnalytics));

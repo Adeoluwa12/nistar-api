@@ -19,6 +19,7 @@ import {
   categoryRouter,
   libraryRouter,
   subscribeRouter,
+  complaintRouter,
 } from './routes/index';
 import { errorHandler, notFound } from './middleware/error';
 import logger from './utils/logger';
@@ -117,6 +118,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/categories', categoryRouter);
 app.use('/api/library', libraryRouter);
 app.use('/api/subscribe', subscribeRouter);
+app.use('/api/complaints', complaintRouter);
 
 // ─── ERROR HANDLING ───────────────────────────────────────────────────────────
 app.use(notFound);
