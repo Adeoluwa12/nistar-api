@@ -150,7 +150,7 @@ export const updateUserStatus = async (req: AuthRequest, res: Response): Promise
   }
 };
 
-// POST /api/admin/counselors — super admin creates a counselor
+// POST /api/admin/counselors - super admin creates a counselor
 export const createCounselor = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, email, password, departmentId, specializations, qualifications, bio } = req.body;
@@ -197,7 +197,7 @@ export const createCounselor = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-// POST /api/admin/department-admins — super admin only
+// POST /api/admin/department-admins - super admin only
 export const createDepartmentAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, email, password, departmentId } = req.body;
@@ -233,7 +233,7 @@ export const createDepartmentAdmin = async (req: AuthRequest, res: Response): Pr
   }
 };
 
-// DELETE /api/admin/users/:id — super admin only
+// DELETE /api/admin/users/:id - super admin only
 export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await User.findById(req.params.id);
@@ -258,7 +258,7 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// POST /api/admin/promote — any admin can promote an existing user to department_admin
+// POST /api/admin/promote - any admin can promote an existing user to department_admin
 export const promoteToAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const raw = String(req.body.email || req.body.identifier || '').trim();
@@ -633,7 +633,7 @@ export const updateDepartment = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// GET /api/admin/analytics — super admin only, platform-wide analytics
+// GET /api/admin/analytics - super admin only, platform-wide analytics
 export const getAnalytics = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const [usersByRole, postsByStatus, downloadAgg, subscribers, totalWorks, topPosts] = await Promise.all([
@@ -666,8 +666,8 @@ export const getAnalytics = async (_req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-// GET /api/admin/conversations — super admin only. Returns metadata ONLY
-// (participants, timestamps, counts) — never message content — and is audited.
+// GET /api/admin/conversations - super admin only. Returns metadata ONLY
+// (participants, timestamps, counts) - never message content - and is audited.
 export const getConversationsMeta = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -694,7 +694,7 @@ export const getConversationsMeta = async (req: AuthRequest, res: Response): Pro
   }
 };
 
-// GET /api/admin/audit-logs — super admin only
+// GET /api/admin/audit-logs - super admin only
 export const getAuditLogs = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);

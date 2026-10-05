@@ -4,7 +4,7 @@ import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 import { emitToConversation, emitToUser } from '../services/socket.service';
 
-// GET /api/conversations — get my conversations
+// GET /api/conversations - get my conversations
 export const getConversations = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const isUser = req.user!.role === 'user';

@@ -3,7 +3,7 @@ import { Subscriber } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
-// POST /api/subscribe — public mailing-list signup
+// POST /api/subscribe - public mailing-list signup
 export const subscribe = async (req: Request, res: Response): Promise<void> => {
   try {
     const email = String(req.body.email || '').toLowerCase().trim();
@@ -25,7 +25,7 @@ export const subscribe = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// GET /api/admin/subscribers — admin
+// GET /api/admin/subscribers - admin
 export const listSubscribers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);

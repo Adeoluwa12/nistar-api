@@ -87,7 +87,7 @@ export const sendVerificationEmail = async (email: string, name: string, token: 
     subject: 'Verify your Nistar account',
     html: baseTemplate(`
       <p>Hello <span class="highlight">${name}</span>,</p>
-      <p>Welcome to Nistar — a safe space where you belong. We're so glad you're here.</p>
+      <p>Welcome to Nistar, a safe space where you belong. We're so glad you're here.</p>
       <p>Please verify your email address to get started on your journey:</p>
       <a href="${url}" class="btn">Verify Email Address</a>
       <hr class="divider"/>
@@ -106,7 +106,7 @@ export const sendPasswordResetEmail = async (email: string, name: string, token:
       <p>We received a request to reset the password for your Nistar account.</p>
       <a href="${url}" class="btn">Reset Password</a>
       <hr class="divider"/>
-      <p class="warning">This link expires in 1 hour. If you did not request a password reset, please ignore this email — your password will remain unchanged.</p>
+      <p class="warning">This link expires in 1 hour. If you did not request a password reset, please ignore this email; your password will remain unchanged.</p>
     `),
   });
 };
@@ -118,7 +118,7 @@ export const sendCounselorAssignmentEmail = async (
 ) => {
   await sendEmail({
     to: userEmail,
-    subject: 'Your counselor has been assigned — Nistar',
+    subject: 'Your counselor has been assigned - Nistar',
     html: baseTemplate(`
       <p>Hello <span class="highlight">${userName}</span>,</p>
       <p>We're pleased to let you know that a counselor has been assigned to support you on your journey.</p>
@@ -126,7 +126,7 @@ export const sendCounselorAssignmentEmail = async (
       <p>You can start a conversation or schedule a session directly from your Nistar dashboard.</p>
       <a href="${process.env.CLIENT_URL}/dashboard" class="btn">Go to Dashboard</a>
       <hr class="divider"/>
-      <p>Remember — reaching out takes courage. We're proud of you for taking this step. 💚</p>
+      <p>Remember: reaching out takes courage. We're proud of you for taking this step. 💚</p>
     `),
   });
 };
@@ -143,7 +143,7 @@ export const sendSessionReminderEmail = async (
   });
   await sendEmail({
     to: email,
-    subject: 'Session reminder — Nistar',
+    subject: 'Session reminder - Nistar',
     html: baseTemplate(`
       <p>Hello <span class="highlight">${name}</span>,</p>
       <p>This is a reminder that you have an upcoming session with <span class="highlight">${counselorName}</span>.</p>
@@ -165,7 +165,7 @@ export const sendCounselorAssignedEmail = async (
   });
   await sendEmail({
     to: counselorEmail,
-    subject: 'New session assigned to you — Nistar',
+    subject: 'New session assigned to you - Nistar',
     html: baseTemplate(`
       <p>Hello <span class="highlight">${counselorName}</span>,</p>
       <p>An admin has assigned you to a support session requested by <span class="highlight">${clientName}</span>.</p>
@@ -183,7 +183,7 @@ export const sendWelcomeEmail = async (email: string, name: string) => {
     html: baseTemplate(`
       <p>Hello <span class="highlight">${name}</span>,</p>
       <p>Your email has been verified and your Nistar account is ready.</p>
-      <p>Nistar is your safe space — a community built on empathy, understanding, and hope. You can:</p>
+      <p>Nistar is your safe space, a community built on empathy, understanding, and hope. You can:</p>
       <ul style="color:#5A5A5A; line-height:1.9; font-size:16px;">
         <li>Share your story and connect with others who understand</li>
         <li>Access professional counselors for guidance and support</li>

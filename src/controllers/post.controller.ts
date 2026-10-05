@@ -5,7 +5,7 @@ import { Comment, Notification } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
-// GET /api/posts — public feed
+// GET /api/posts - public feed
 export const getPosts = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -39,7 +39,7 @@ export const getPosts = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// GET /api/posts/tags — most-used tags for composer suggestions
+// GET /api/posts/tags - most-used tags for composer suggestions
 export const getTags = async (_req: Request, res: Response): Promise<void> => {
   try {
     const tags = await Post.aggregate([
@@ -87,7 +87,7 @@ export const getPost = async (req: AuthRequest, res: Response): Promise<void> =>
       }
     }
 
-    // Increment view count — author and admin previews don't count as views
+    // Increment view count - author and admin previews don't count as views
     if (!isAuthor && !isAdmin) {
       await Post.findByIdAndUpdate(post._id, { $inc: { viewCount: 1 } });
     }
@@ -138,7 +138,7 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
         ? 'Post submitted for review'
         : 'Post created successfully';
     if ((req as any).imageUploadFailed) {
-      message += ' — image upload failed, please try uploading again later.';
+      message += '. Image upload failed, please try uploading again later.';
     }
     sendSuccess(res, post, message, 201);
   } catch (err) {
@@ -188,7 +188,7 @@ export const updatePost = async (req: AuthRequest, res: Response): Promise<void>
     await post.save();
     await post.populate('author', 'name avatar role isAuthor');
     const message = (req as any).imageUploadFailed
-      ? 'Post updated — image upload failed, please try uploading again later.'
+      ? 'Post updated. Image upload failed, please try uploading again later.'
       : 'Post updated successfully';
     sendSuccess(res, post, message);
   } catch (err) {

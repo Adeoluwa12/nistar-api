@@ -18,7 +18,7 @@ async function downloadBuffer(url: string): Promise<Buffer> {
 
 type MulterFiles = { [field: string]: Express.Multer.File[] };
 
-// GET /api/library — public, published works
+// GET /api/library - public, published works
 export const listWorks = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -59,7 +59,7 @@ export const getWork = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// POST /api/admin/library — admin creates a work (epub required, cover optional)
+// POST /api/admin/library - admin creates a work (epub required, cover optional)
 export const createWork = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const files = (req.files as MulterFiles) || {};
@@ -89,7 +89,7 @@ export const createWork = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// DELETE /api/admin/library/:id — admin
+// DELETE /api/admin/library/:id - admin
 export const deleteWork = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const work = await LiteraryWork.findByIdAndDelete(req.params.id);
@@ -113,7 +113,7 @@ export const deleteWork = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// GET /api/library/:slug/download — visitors + authenticated users
+// GET /api/library/:slug/download - visitors + authenticated users
 // Applies an on-demand personalised watermark before streaming the EPUB.
 export const downloadWork = async (req: AuthRequest, res: Response): Promise<void> => {
   try {

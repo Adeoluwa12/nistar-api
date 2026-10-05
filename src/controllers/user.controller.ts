@@ -5,7 +5,7 @@ import { Notification } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
-// GET /api/users/me/stats — author/user dashboard aggregate
+// GET /api/users/me/stats - author/user dashboard aggregate
 export const getMyStats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const posts = await Post.find({ author: req.user!._id }).select('status likeCount commentCount viewCount');
@@ -52,7 +52,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-// PUT /api/users/counselor-profile — counselor updates their professional info
+// PUT /api/users/counselor-profile - counselor updates their professional info
 export const updateCounselorProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!['counselor', 'department_admin'].includes(req.user!.role)) {

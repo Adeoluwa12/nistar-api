@@ -4,7 +4,7 @@ import { Category } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError } from '../utils/response';
 
-// GET /api/categories — public, active only
+// GET /api/categories - public, active only
 export const listCategories = async (_req: Request, res: Response): Promise<void> => {
   try {
     const categories = await Category.find({ isActive: true }).sort({ name: 1 });
@@ -14,7 +14,7 @@ export const listCategories = async (_req: Request, res: Response): Promise<void
   }
 };
 
-// GET /api/admin/categories — admins see all
+// GET /api/admin/categories - admins see all
 export const listAllCategories = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const categories = await Category.find().sort({ name: 1 });
@@ -24,7 +24,7 @@ export const listAllCategories = async (_req: AuthRequest, res: Response): Promi
   }
 };
 
-// POST /api/admin/categories — super admin
+// POST /api/admin/categories - super admin
 export const createCategory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, description, icon, color } = req.body;
@@ -43,7 +43,7 @@ export const createCategory = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
-// PUT /api/admin/categories/:id — super admin
+// PUT /api/admin/categories/:id - super admin
 export const updateCategory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const updates: Record<string, unknown> = {};
@@ -65,7 +65,7 @@ export const updateCategory = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
-// DELETE /api/admin/categories/:id — super admin
+// DELETE /api/admin/categories/:id - super admin
 export const deleteCategory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const category = await Category.findByIdAndDelete(req.params.id);

@@ -6,7 +6,7 @@ import { sendSuccess, sendError, parsePagination, paginate } from '../utils/resp
 import { encryptField, decryptField } from '../utils/encryption';
 import { sendCounselorAssignmentEmail, sendSessionReminderEmail } from '../utils/email';
 
-// GET /api/counselors — public list
+// GET /api/counselors - public list
 export const getCounselors = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -53,7 +53,7 @@ export const getCounselor = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// POST /api/counselors/request — user requests a counselor
+// POST /api/counselors/request - user requests a counselor
 export const requestCounselor = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (req.user!.assignedCounselor) {
@@ -115,7 +115,7 @@ export const requestCounselor = async (req: AuthRequest, res: Response): Promise
   }
 };
 
-// GET /api/counselors/my-users — counselor views their assigned users
+// GET /api/counselors/my-users - counselor views their assigned users
 export const getMyUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -135,7 +135,7 @@ export const getMyUsers = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// POST /api/counselors/apply — submit a counselor/associate application
+// POST /api/counselors/apply - submit a counselor/associate application
 export const applyCounselor = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const existing = await CounselorApplication.findOne({ user: req.user!._id, status: 'pending' });
@@ -164,7 +164,7 @@ export const applyCounselor = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
-// POST /api/sessions — request or schedule a session
+// POST /api/sessions - request or schedule a session
 export const scheduleSession = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
@@ -251,7 +251,7 @@ export const scheduleSession = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-// GET /api/sessions/my — get user sessions
+// GET /api/sessions/my - get user sessions
 export const getMySessions = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -358,7 +358,7 @@ export const rateSession = async (req: AuthRequest, res: Response): Promise<void
   }
 };
 
-// PUT /api/sessions/:id/accept — counselor accepts an assignment made by an admin
+// PUT /api/sessions/:id/accept - counselor accepts an assignment made by an admin
 export const acceptSession = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const session = await Session.findById(req.params.id);
@@ -394,7 +394,7 @@ export const acceptSession = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-// PUT /api/sessions/:id/meeting — counselor/admin attaches a meeting link (e.g. Google Meet)
+// PUT /api/sessions/:id/meeting - counselor/admin attaches a meeting link (e.g. Google Meet)
 export const setSessionMeeting = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { meetingLink } = req.body;
@@ -429,7 +429,7 @@ export const setSessionMeeting = async (req: AuthRequest, res: Response): Promis
   }
 };
 
-// PUT /api/sessions/:id/complete — counselor/admin marks a session complete
+// PUT /api/sessions/:id/complete - counselor/admin marks a session complete
 export const completeSession = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const session = await Session.findById(req.params.id);
@@ -457,7 +457,7 @@ export const completeSession = async (req: AuthRequest, res: Response): Promise<
       recipient: session.user,
       type: 'session_scheduled',
       title: 'Session completed',
-      message: 'Your session was marked complete. We\'d love your feedback — please leave a rating.',
+      message: 'Your session was marked complete. We\'d love your feedback, please leave a rating.',
       data: { sessionId: session._id },
     });
 

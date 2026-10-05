@@ -3,7 +3,7 @@ import { Complaint, Notification } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
 
-// POST /api/complaints — submit a complaint/support request (auth optional)
+// POST /api/complaints - submit a complaint/support request (auth optional)
 export const submitComplaint = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { subject, message, category, name, email } = req.body;
@@ -28,7 +28,7 @@ export const submitComplaint = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-// GET /api/complaints/my — the current user's own complaints
+// GET /api/complaints/my - the current user's own complaints
 export const getMyComplaints = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const complaints = await Complaint.find({ user: req.user!._id }).sort({ createdAt: -1 }).limit(50);
@@ -38,7 +38,7 @@ export const getMyComplaints = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-// GET /api/admin/complaints — admin list
+// GET /api/admin/complaints - admin list
 export const getComplaints = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -62,7 +62,7 @@ export const getComplaints = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-// PUT /api/admin/complaints/:id — update status / resolution note
+// PUT /api/admin/complaints/:id - update status / resolution note
 export const updateComplaint = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { status, resolutionNote } = req.body;

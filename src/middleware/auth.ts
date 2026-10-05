@@ -76,7 +76,7 @@ export const optionalAuth = async (
       }
     }
   } catch {
-    // Silent — optional auth
+    // Silent - optional auth
   }
   next();
 };
