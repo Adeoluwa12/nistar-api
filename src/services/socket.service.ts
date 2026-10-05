@@ -10,6 +10,21 @@ interface AuthSocket extends Socket {
   userRole?: string;
 }
 
+// Module-level reference so REST controllers can emit realtime events when a
+// socket server is attached (e.g. `index.ts`). On serverless deployments there
+// is no socket server and these helpers safely no-op.
+let ioInstance: SocketServer | null = null;
+
+export const getIO = (): SocketServer | null => ioInstance;
+
+export const emitToConversation = (conversationId: string, event: string, payload: unknown): void => {
+  ioInstance?.to(`conv:${conversationId}`).emit(event, payload);
+};
+
+export const emitToUser = (userId: string, event: string, payload: unknown): void => {
+  ioInstance?.to(`user:${userId}`).emit(event, payload);
+};
+
 export const initSocket = (httpServer: HTTPServer): SocketServer => {
   const io = new SocketServer(httpServer, {
     cors: {
@@ -46,6 +61,8 @@ export const initSocket = (httpServer: HTTPServer): SocketServer => {
 
   // Track online users
   const onlineUsers = new Map<string, string>(); // userId -> socketId
+
+  ioInstance = io;
 
   io.on('connection', (socket: AuthSocket) => {
     const userId = socket.userId!;

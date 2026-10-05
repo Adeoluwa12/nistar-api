@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { Conversation, Message, Notification } from '../models/index';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
+import { emitToConversation, emitToUser } from '../services/socket.service';
 
 // GET /api/conversations — get my conversations
 export const getConversations = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -110,8 +111,15 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
     }
     await Conversation.findByIdAndUpdate(conversation._id, updateData);
 
-    // Notify recipient
+    // Realtime delivery when a socket server is attached (no-op on serverless)
+    emitToConversation(conversation._id.toString(), 'message:new', message);
     const recipientId = isUser ? conversation.counselor : conversation.user;
+    emitToUser(recipientId.toString(), 'notification:message', {
+      conversationId: conversation._id,
+      message: { _id: message._id, content, sender: { _id: req.user!._id } },
+    });
+
+    // Notify recipient
     await Notification.create({
       recipient: recipientId,
       type: 'new_message',
