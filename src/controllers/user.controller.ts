@@ -46,7 +46,10 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     if (req.file) updates.avatar = (req.file as any).path;
 
     const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true, runValidators: true });
-    sendSuccess(res, user, 'Profile updated');
+    const message = (req as any).imageUploadFailed
+      ? 'Profile updated. Image upload failed, please try uploading again later.'
+      : 'Profile updated';
+    sendSuccess(res, user, message);
   } catch (err) {
     sendError(res, 'Failed to update profile.', 500);
   }
@@ -69,7 +72,10 @@ export const updateCounselorProfile = async (req: AuthRequest, res: Response): P
     if (req.file) updates.avatar = (req.file as any).path;
 
     const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true });
-    sendSuccess(res, user, 'Counselor profile updated');
+    const message = (req as any).imageUploadFailed
+      ? 'Counselor profile updated. Image upload failed, please try uploading again later.'
+      : 'Counselor profile updated';
+    sendSuccess(res, user, message);
   } catch (err) {
     sendError(res, 'Failed to update counselor profile.', 500);
   }
