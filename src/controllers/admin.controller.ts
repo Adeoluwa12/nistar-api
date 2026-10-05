@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import Post from '../models/Post';
-import { Comment, Session, Notification, Conversation, CounselorApplication, LiteraryWork, Subscriber, AuditLog } from '../models/index';
+import { Comment, Session, Notification, Conversation, CounselorApplication, LiteraryWork, Subscriber, AuditLog, Complaint } from '../models/index';
 import Department from '../models/Department';
 import { AuthRequest } from '../types/index';
 import { sendSuccess, sendError, parsePagination, paginate } from '../utils/response';
-import { sendVerificationEmail } from '../utils/email';
+import { sendVerificationEmail, sendCounselorAssignedEmail } from '../utils/email';
 import { logAudit } from '../utils/audit';
 import { AUTHOR_APPROVAL_THRESHOLD } from '../config/constants';
 
@@ -22,6 +22,9 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
       pendingComments,
       activeSessions,
       newUsersThisWeek,
+      totalSubscribers,
+      pendingPosts,
+      openComplaints,
     ] = await Promise.all([
       User.countDocuments({ role: 'user', status: 'active' }),
       User.countDocuments({ role: 'counselor', status: 'active' }),
@@ -33,14 +36,19 @@ export const getDashboard = async (req: AuthRequest, res: Response): Promise<voi
         role: 'user',
         createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       }),
+      Subscriber.countDocuments(),
+      Post.countDocuments({ status: 'pending' }),
+      Complaint.countDocuments({ status: 'open' }),
     ]);
 
     const stats: Record<string, unknown> = {
       users: { total: totalUsers, newThisWeek: newUsersThisWeek },
       counselors: { total: totalCounselors },
-      posts: { total: totalPosts },
+      posts: { total: totalPosts, pending: pendingPosts },
       sessions: { total: totalSessions, active: activeSessions },
       comments: { pending: pendingComments },
+      subscribers: { total: totalSubscribers },
+      complaints: { open: openComplaints },
     };
 
     if (isSuperAdmin) {
@@ -516,6 +524,18 @@ export const assignSession = async (req: AuthRequest, res: Response): Promise<vo
       message: `A new appointment on ${session.requestedDate.toLocaleDateString()} has been assigned to you.`,
       data: { sessionId: session._id, userId: session.user },
     });
+
+    // Email the counselor so they can accept or cancel the assignment
+    try {
+      await sendCounselorAssignedEmail(
+        counselor.email,
+        counselor.name,
+        (session.user as { name?: string }).name || 'A user',
+        session.requestedDate
+      );
+    } catch {
+      // Email failures shouldn't block the assignment itself
+    }
 
     await session.populate('counselor', 'name avatar');
     await session.populate('user', 'name avatar');

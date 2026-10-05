@@ -153,6 +153,29 @@ export const sendSessionReminderEmail = async (
   });
 };
 
+export const sendCounselorAssignedEmail = async (
+  counselorEmail: string,
+  counselorName: string,
+  clientName: string,
+  requestedDate: Date
+) => {
+  const dateStr = requestedDate.toLocaleString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  });
+  await sendEmail({
+    to: counselorEmail,
+    subject: 'New session assigned to you — Nistar',
+    html: baseTemplate(`
+      <p>Hello <span class="highlight">${counselorName}</span>,</p>
+      <p>An admin has assigned you to a support session requested by <span class="highlight">${clientName}</span>.</p>
+      <p><strong>Requested for:</strong> ${dateStr}</p>
+      <p>Please review the request and accept or cancel it from your dashboard. Once accepted, you can add a meeting link for the session.</p>
+      <a href="${process.env.CLIENT_URL}/sessions" class="btn">Review Assignment</a>
+    `),
+  });
+};
+
 export const sendWelcomeEmail = async (email: string, name: string) => {
   await sendEmail({
     to: email,

@@ -358,6 +358,42 @@ export const rateSession = async (req: AuthRequest, res: Response): Promise<void
   }
 };
 
+// PUT /api/sessions/:id/accept — counselor accepts an assignment made by an admin
+export const acceptSession = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      sendError(res, 'Session not found.', 404);
+      return;
+    }
+
+    if (!session.counselor || session.counselor.toString() !== req.user!._id.toString()) {
+      sendError(res, 'Unauthorised.', 403);
+      return;
+    }
+
+    if (session.status !== 'approved') {
+      sendError(res, 'This session cannot be accepted.', 400);
+      return;
+    }
+
+    session.status = 'scheduled';
+    await session.save();
+
+    await Notification.create({
+      recipient: session.user,
+      type: 'session_scheduled',
+      title: 'Session confirmed',
+      message: `${req.user!.name} confirmed your session on ${session.requestedDate.toLocaleDateString()}.`,
+      data: { sessionId: session._id },
+    });
+
+    sendSuccess(res, session, 'Session accepted');
+  } catch (err) {
+    sendError(res, 'Failed to accept session.', 500);
+  }
+};
+
 // PUT /api/sessions/:id/meeting — counselor/admin attaches a meeting link (e.g. Google Meet)
 export const setSessionMeeting = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
