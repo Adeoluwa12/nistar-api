@@ -6,7 +6,7 @@ const PostSchema = new Schema<IPost>(
   {
     title: { type: String, required: true, trim: true, maxlength: 200 },
     slug: { type: String, unique: true }, // Already indexed
-    content: { type: String, required: true },
+    content: { type: String, required: true, default: '' },
     excerpt: { type: String, maxlength: 500 },
     coverImage: { type: String },
     author: { type: Schema.Types.ObjectId, ref: 'User', required: true },

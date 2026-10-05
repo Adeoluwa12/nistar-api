@@ -39,10 +39,27 @@ export const getPosts = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// GET /api/posts/tags — most-used tags for composer suggestions
+export const getTags = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const tags = await Post.aggregate([
+      { $match: { status: 'published' } },
+      { $unwind: '$tags' },
+      { $group: { _id: '$tags', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 40 },
+      { $project: { _id: 0, tag: '$_id', count: 1 } },
+    ]);
+    sendSuccess(res, tags);
+  } catch (err) {
+    sendError(res, 'Failed to fetch tags.', 500);
+  }
+};
+
 // GET /api/posts/:slug
 export const getPost = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const post = await Post.findOne({ slug: req.params.slug, status: 'published' })
+    const post = await Post.findOne({ slug: req.params.slug })
       .populate('author', 'name avatar bio role isAuthor assignedCounselor');
 
     if (!post) {
@@ -50,12 +67,19 @@ export const getPost = async (req: AuthRequest, res: Response): Promise<void> =>
       return;
     }
 
+    const userId = req.user?._id?.toString();
+    const isAuthor = post.author._id.toString() === userId;
+    const isAdmin = ['department_admin', 'super_admin'].includes(req.user?.role ?? '');
+
+    // Non-published posts are only visible to their author and admins
+    if (post.status !== 'published' && !isAuthor && !isAdmin) {
+      sendError(res, 'Post not found.', 404);
+      return;
+    }
+
     // Private posts are only visible to the author, their assigned counselor, and admins
     if (post.visibility === 'private') {
-      const userId = req.user?._id?.toString();
-      const isAuthor = post.author._id.toString() === userId;
       const isAssignedCounselor = (post.author as any).assignedCounselor?.toString() === userId;
-      const isAdmin = ['department_admin', 'super_admin'].includes(req.user?.role ?? '');
 
       if (!isAuthor && !isAssignedCounselor && !isAdmin) {
         sendError(res, 'Post not found.', 404);
@@ -63,13 +87,17 @@ export const getPost = async (req: AuthRequest, res: Response): Promise<void> =>
       }
     }
 
-    // Increment view count
-    await Post.findByIdAndUpdate(post._id, { $inc: { viewCount: 1 } });
+    // Increment view count — author and admin previews don't count as views
+    if (!isAuthor && !isAdmin) {
+      await Post.findByIdAndUpdate(post._id, { $inc: { viewCount: 1 } });
+    }
 
-    const comments = await Comment.find({ post: post._id, status: 'approved', parentComment: null })
-      .populate('author', 'name avatar')
-      .sort({ createdAt: -1 })
-      .limit(20);
+    const comments = post.status === 'published'
+      ? await Comment.find({ post: post._id, status: 'approved', parentComment: null })
+          .populate('author', 'name avatar')
+          .sort({ createdAt: -1 })
+          .limit(20)
+      : [];
 
     sendSuccess(res, { post, comments });
   } catch (err) {
@@ -80,10 +108,13 @@ export const getPost = async (req: AuthRequest, res: Response): Promise<void> =>
 // POST /api/posts
 export const createPost = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { title, content, excerpt, tags, category, isAnonymous, allowComments, visibility } = req.body;
+    const { title, content, excerpt, tags, category, isAnonymous, allowComments, visibility, status } = req.body;
 
-    const postStatus = 'published';
-    const autoPublished = true;
+    // Drafts save as-is. Non-draft submissions auto-publish for Authors and
+    // queue for admin review for everyone else.
+    const isAuthor = !!req.user!.isAuthor;
+    const postStatus = status === 'draft' ? 'draft' : isAuthor ? 'published' : 'pending';
+    const autoPublished = postStatus === 'published';
 
     const post = await Post.create({
       title,
@@ -101,9 +132,14 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
     });
 
     await post.populate('author', 'name avatar role isAuthor');
-    const message = (req as any).imageUploadFailed
-      ? 'Post created successfully — image upload failed, please try uploading again later.'
-      : 'Post created successfully';
+    let message = postStatus === 'draft'
+      ? 'Draft saved'
+      : postStatus === 'pending'
+        ? 'Post submitted for review'
+        : 'Post created successfully';
+    if ((req as any).imageUploadFailed) {
+      message += ' — image upload failed, please try uploading again later.';
+    }
     sendSuccess(res, post, message, 201);
   } catch (err) {
     sendError(res, 'Failed to create post.', 500);
@@ -127,18 +163,34 @@ export const updatePost = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const allowed = ['title', 'content', 'excerpt', 'tags', 'category', 'status', 'isAnonymous', 'allowComments', 'coverImage', 'visibility'];
+    const allowed = ['title', 'content', 'excerpt', 'tags', 'category', 'isAnonymous', 'allowComments', 'coverImage', 'visibility'];
     allowed.forEach((key) => {
       if (req.body[key] !== undefined) {
         (post as unknown as Record<string, unknown>)[key] = req.body[key];
       }
     });
 
+    // Status transitions: admins may set any status; authors publish directly;
+    // anyone else publishing/submitting goes (back) to the review queue.
+    if (req.body.status !== undefined && req.body.status !== post.status) {
+      if (isAdmin) {
+        post.status = req.body.status;
+      } else if (req.body.status === 'draft') {
+        post.status = 'draft';
+      } else {
+        post.status = req.user!.isAuthor ? 'published' : 'pending';
+        if (post.status === 'published') post.autoPublished = true;
+      }
+    }
+
     if (req.file) post.coverImage = (req.file as any).path;
 
     await post.save();
     await post.populate('author', 'name avatar role isAuthor');
-    sendSuccess(res, post, 'Post updated successfully');
+    const message = (req as any).imageUploadFailed
+      ? 'Post updated — image upload failed, please try uploading again later.'
+      : 'Post updated successfully';
+    sendSuccess(res, post, message);
   } catch (err) {
     sendError(res, 'Failed to update post.', 500);
   }
