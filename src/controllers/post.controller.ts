@@ -138,7 +138,8 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
         ? 'Post submitted for review'
         : 'Post created successfully';
     if ((req as any).imageUploadFailed) {
-      message += '. Image upload failed, please try uploading again later.';
+      const reason: string = (req as any).imageUploadError ?? 'unknown error';
+      message += `. Cover image could not be uploaded (${reason}). The post was saved without it.`;
     }
     sendSuccess(res, post, message, 201);
   } catch (err) {
@@ -188,7 +189,7 @@ export const updatePost = async (req: AuthRequest, res: Response): Promise<void>
     await post.save();
     await post.populate('author', 'name avatar role isAuthor');
     const message = (req as any).imageUploadFailed
-      ? 'Post updated. Image upload failed, please try uploading again later.'
+      ? `Post updated. Cover image could not be uploaded (${(req as any).imageUploadError ?? 'unknown error'}). The post was saved without it.`
       : 'Post updated successfully';
     sendSuccess(res, post, message);
   } catch (err) {

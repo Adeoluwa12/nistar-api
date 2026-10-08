@@ -10,6 +10,15 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const missingVars = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']
+  .filter((v) => !process.env[v]);
+if (missingVars.length > 0) {
+  logger.error(
+    `[upload] Missing Cloudinary env vars: ${missingVars.join(', ')}. ` +
+    'Image uploads will fail until these are set.'
+  );
+}
+
 const imageStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -98,9 +107,15 @@ export const uploadImage = multer({
 export const uploadImageSafe = (req: Request, res: Response, next: NextFunction): void => {
   uploadImage(req, res, (err?: unknown) => {
     if (err) {
-      logger.warn('Image upload failed, proceeding without image:', (err as Error).message);
+      const error = err as Error & { code?: string; http_code?: number };
+      // Log the full error so Cloudinary / multer issues are visible in server logs.
+      logger.error(
+        `[uploadImageSafe] Image upload failed (${error.code ?? error.http_code ?? 'UNKNOWN'}): ${error.message}`,
+        { stack: error.stack }
+      );
       (req as any).file = undefined;
       (req as any).imageUploadFailed = true;
+      (req as any).imageUploadError = error.message;
       next();
     } else {
       next();

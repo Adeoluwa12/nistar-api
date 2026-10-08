@@ -47,7 +47,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
 
     const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true, runValidators: true });
     const message = (req as any).imageUploadFailed
-      ? 'Profile updated. Image upload failed, please try uploading again later.'
+      ? `Profile updated. Avatar could not be uploaded (${(req as any).imageUploadError ?? 'unknown error'}). The profile was saved without it.`
       : 'Profile updated';
     sendSuccess(res, user, message);
   } catch (err) {
@@ -73,7 +73,7 @@ export const updateCounselorProfile = async (req: AuthRequest, res: Response): P
 
     const user = await User.findByIdAndUpdate(req.user!._id, updates, { new: true });
     const message = (req as any).imageUploadFailed
-      ? 'Counselor profile updated. Image upload failed, please try uploading again later.'
+      ? `Counselor profile updated. Avatar could not be uploaded (${(req as any).imageUploadError ?? 'unknown error'}). The profile was saved without it.`
       : 'Counselor profile updated';
     sendSuccess(res, user, message);
   } catch (err) {
